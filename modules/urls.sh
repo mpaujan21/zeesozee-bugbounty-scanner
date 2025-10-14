@@ -10,7 +10,7 @@ urls_step() {
     (
         command -v waybackurls >/dev/null && { info "Running waybackurls"; cat "$outdir/clean_httpx.txt" | waybackurls | sort -u > "$outdir/urls/waybackurls.txt" & }
         command -v gau >/dev/null && { info "Running gau"; cat "$outdir/clean_httpx.txt" | gau --threads "$threads" --blacklist png,jpg,gif,jpeg,css,tif,tiff,ttf,woff,woff2,ico > "$outdir/urls/gau.txt" & }
-        command -v katana >/dev/null && { info "Running katana"; katana -silent -nc -jc -fs fqdn -list "$outdir/clean_httpx.txt" -f url -ef jpg,jpeg,gif,css,tif,tiff,png,ttf,woff,woff2,ico -H "$HEADER" -H "$HEADER2" -o "$outdir/urls/katana.txt" & }
+        command -v katana >/dev/null && { info "Running katana"; katana -silent -nc -jc -fs fqdn -list "$outdir/clean_httpx.txt" -f url -ef jpg,jpeg,gif,css,tif,tiff,png,ttf,woff,woff2,ico -H "$HEADER" -o "$outdir/urls/katana.txt" & }
         wait
     ) 2>/dev/null
     

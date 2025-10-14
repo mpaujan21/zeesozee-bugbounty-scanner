@@ -13,7 +13,7 @@ js_step() {
         [[ -z "$js" ]] && continue
         local name; name="$(basename "$js" | sed 's/\?.*//')"
         info "Downloading: $name"
-        curl --max-time 30 -sL -H "$HEADER" -H "$HEADER2" "$js" -o "$outdir/js/$name"
+        curl --max-time 30 -sL -H "$HEADER" "$js" -o "$outdir/js/$name"
         command -v prettier >/dev/null && prettier --write "$outdir/js/$name" >/dev/null 2>&1 || true
     done < "$outdir/js.txt"
     

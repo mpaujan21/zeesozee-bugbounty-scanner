@@ -3,8 +3,7 @@
 
 set -o pipefail
 
-HEADER="X-BugCrowd-Research: zeesozee"
-HEADER2="X-HackerOne-Research: zeesozee"
+HEADER="X-HackerOne-Research: zeesozee"
 
 ensure_dir() { mkdir -p "$1"; }
 

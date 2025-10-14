@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/utils.sh"
 
 # load modules
-for mod in subdomains probing ports permutation urls categorize sensitive nuclei js report; do
+for mod in subdomains probing ports permutation urls categorize sensitive js report; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
