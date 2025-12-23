@@ -1,0 +1,107 @@
+# Required Tools for zee-scanner
+# ================================
+
+# Core Dependencies (required)
+# ----------------------------
+jq                      # JSON parsing (used everywhere)
+curl                    # HTTP requests (crt.sh)
+dig                     # DNS queries (wildcard detection)
+
+# Subdomain Enumeration
+# ---------------------
+subfinder               # go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+assetfinder             # go install github.com/tomnomnom/assetfinder@latest
+findomain               # https://github.com/Findomain/Findomain/releases
+amass                   # go install github.com/owasp-amass/amass/v4/...@master
+
+# DNS Resolution
+# --------------
+dnsx                    # go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+
+# HTTP Probing
+# ------------
+httpx                   # go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+# Port Scanning
+# -------------
+naabu                   # go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+
+# Subdomain Permutation
+# ---------------------
+dnsgen                  # pip install dnsgen
+alterx                  # go install github.com/projectdiscovery/alterx/cmd/alterx@latest
+gotator                 # go install github.com/Josue87/gotator@latest
+
+# URL Discovery
+# -------------
+waybackurls             # go install github.com/tomnomnom/waybackurls@latest
+gau                     # go install github.com/lc/gau/v2/cmd/gau@latest
+katana                  # go install github.com/projectdiscovery/katana/cmd/katana@latest
+gospider                # go install github.com/jaeles-project/gospider@latest
+waymore                 # pip install waymore
+uro                     # pip install uro
+
+# URL Analysis & Categorization
+# -----------------------------
+gf                      # go install github.com/tomnomnom/gf@latest (+ gf patterns)
+unfurl                  # go install github.com/tomnomnom/unfurl@latest
+
+# Fuzzing & Sensitive Discovery
+# -----------------------------
+ffuf                    # go install github.com/ffuf/ffuf/v2@latest
+backupfinder            # go install github.com/evilsocket/backupfinder@latest
+
+# JavaScript Analysis
+# -------------------
+jsluice                 # go install github.com/BishopFox/jsluice/cmd/jsluice@latest
+trufflehog              # go install github.com/trufflesecurity/trufflehog/v3@latest
+LinkFinder              # git clone https://github.com/GerbenJavado/LinkFinder.git
+prettier                # npm install -g prettier
+
+# Optional but Recommended
+# ------------------------
+hakrawler               # go install github.com/hakluke/hakrawler@latest
+paramspider             # pip install paramspider
+
+# ================================
+# Quick Install Commands
+# ================================
+
+# Go tools (run each line):
+# go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+# go install github.com/tomnomnom/assetfinder@latest
+# go install github.com/owasp-amass/amass/v4/...@master
+# go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+# go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+# go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+# go install github.com/projectdiscovery/alterx/cmd/alterx@latest
+# go install github.com/Josue87/gotator@latest
+# go install github.com/tomnomnom/waybackurls@latest
+# go install github.com/lc/gau/v2/cmd/gau@latest
+# go install github.com/projectdiscovery/katana/cmd/katana@latest
+# go install github.com/jaeles-project/gospider@latest
+# go install github.com/hakluke/hakrawler@latest
+# go install github.com/tomnomnom/gf@latest
+# go install github.com/tomnomnom/unfurl@latest
+# go install github.com/ffuf/ffuf/v2@latest
+# go install github.com/BishopFox/jsluice/cmd/jsluice@latest
+# go install github.com/trufflesecurity/trufflehog/v3@latest
+
+# Python tools:
+# pip install dnsgen uro waymore
+
+# System packages (Debian/Ubuntu):
+# sudo apt install jq curl dnsutils
+
+# Node tools:
+# npm install -g prettier
+
+# GF patterns (after installing gf):
+# git clone https://github.com/1ndianl33t/Gf-Patterns ~/.gf
+
+# LinkFinder:
+# git clone https://github.com/GerbenJavado/LinkFinder.git
+# pip install -r LinkFinder/requirements.txt
+
+# Findomain (download binary):
+# https://github.com/Findomain/Findomain/releases

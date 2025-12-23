@@ -4,13 +4,27 @@
 probe_step() {
     local outdir="$1" threads="${2:-50}"
     ok "Probing live subdomains..."
+
     if [[ ! -s "$outdir/subdomains.txt" ]]; then
         warn "No subdomains list found, skipping probe."
         return
     fi
-    cat "$outdir/subdomains.txt" | httpx -silent -nc -location -ip -title -tech-detect -status-code -td \
-    -mc 200,201,202,203,204,301,302,307,401,403,405,500 \
-    -H "$HEADER" -threads "$threads" -o "$outdir/httpx.txt"
-    awk '{print $1}' "$outdir/httpx.txt" > "$outdir/clean_httpx.txt"
-    ok "Found $(wc -l < "$outdir/clean_httpx.txt" 2>/dev/null || echo 0) live subdomains"
+
+    # Run httpx once with JSON output
+    httpx -l "$outdir/subdomains.txt" \
+        -silent -nc \
+        -location -ip -title -tech-detect -status-code -td \
+        -favicon -cdn -web-server -cname -asn \
+        -timeout 10 -retries 2 -rl 150 \
+        -H "$HEADER" -threads "$threads" \
+        -json -o "$outdir/httpx.json"
+
+    # Generate human-readable format from JSON
+    jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]", "[\(.host // "")]"] | join(" ")' \
+        "$outdir/httpx.json" > "$outdir/httpx.txt" 2>/dev/null
+
+    # Extract clean URL list
+    jq -r '.url' "$outdir/httpx.json" > "$outdir/clean_httpx.txt" 2>/dev/null
+
+    ok "Found $(wc -l < "$outdir/clean_httpx.txt" 2>/dev/null || echo 0) live hosts"
 }

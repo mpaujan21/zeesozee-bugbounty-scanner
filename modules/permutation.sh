@@ -2,15 +2,133 @@
 # shellcheck shell=bash
 
 permutation_step() {
-    local outdir="$1"
+    local outdir="$1" threads="${2:-50}"
+    local wildcard_ip=""
+
     ok "Performing subdomain permutation..."
-    [[ -s "$outdir/clean_httpx.txt" ]] || { warn "No live subdomains; skipping permutations."; return; }
-    
-    command -v dnsgen >/dev/null || { warn "dnsgen not found; skipping."; return; }
-    dnsgen "$outdir/clean_httpx.txt" > "$outdir/dnsgen.txt" 2>/dev/null
-    
-    cat "$outdir/dnsgen.txt" | dnsx -silent -a -resp -o "$outdir/dnsx.txt" 2>/dev/null
-    
-    cat "$outdir/dnsgen.txt" | httpx -silent -mc 200,201,202,203,204,301,302,307,401,403,405,500 > "$outdir/live_subdomains_permutation.txt" 2>/dev/null
-    # TODO: altdns/permutation with AI
+
+    # Check for input
+    if [[ ! -s "$outdir/subdomains.txt" ]]; then
+        warn "No subdomains found; skipping permutations."
+        return
+    fi
+
+    ensure_dir "$outdir/permutations"
+
+    # Load wildcard IP if detected
+    if [[ -s "$outdir/wildcard_ip.txt" ]]; then
+        wildcard_ip=$(cat "$outdir/wildcard_ip.txt")
+        warn "Wildcard detected ($wildcard_ip) - will filter false positives"
+    fi
+
+    # Extract clean domains (not URLs)
+    sed -E 's|^https?://||; s|/.*$||; s|:.*$||' "$outdir/subdomains.txt" \
+        | sort -u > "$outdir/permutations/input_domains.txt"
+
+    local input_count
+    input_count=$(wc -l < "$outdir/permutations/input_domains.txt")
+    info "Generating permutations from $input_count domains..."
+
+    # Generate permutations with available tools (parallel)
+    (
+        info "Running alterx"
+        alterx -l "$outdir/permutations/input_domains.txt" -silent \
+            -o "$outdir/permutations/alterx.txt" 2>/dev/null &
+
+        info "Running dnsgen"
+        dnsgen "$outdir/permutations/input_domains.txt" \
+            > "$outdir/permutations/dnsgen.txt" 2>/dev/null &
+
+        info "Running gotator"
+        gotator -sub "$outdir/permutations/input_domains.txt" -perm -silent \
+            > "$outdir/permutations/gotator.txt" 2>/dev/null &
+
+        wait
+    )
+
+    # Combine all permutations
+    cat "$outdir/permutations/alterx.txt" \
+        "$outdir/permutations/dnsgen.txt" \
+        "$outdir/permutations/gotator.txt" 2>/dev/null \
+        | sort -u > "$outdir/permutations/all_permutations.txt"
+
+    # Dedupe - remove already known subdomains
+    if [[ -s "$outdir/permutations/all_permutations.txt" ]]; then
+        comm -23 \
+            <(sort "$outdir/permutations/all_permutations.txt") \
+            <(sort "$outdir/subdomains.txt") \
+            > "$outdir/permutations/new_permutations.txt"
+    fi
+
+    if [[ ! -s "$outdir/permutations/new_permutations.txt" ]]; then
+        info "No new permutations to check"
+        return
+    fi
+
+    local perm_count
+    perm_count=$(wc -l < "$outdir/permutations/new_permutations.txt")
+    info "Resolving $perm_count unique new permutations..."
+
+    # DNS resolution with dnsx
+    if [[ -n "$wildcard_ip" ]]; then
+        # Filter out wildcard IPs
+        dnsx -l "$outdir/permutations/new_permutations.txt" \
+            -silent -a -resp \
+            -rate "$threads" \
+            -retry 2 \
+            2>/dev/null \
+            | grep -v "$wildcard_ip" \
+            | awk '{print $1}' \
+            | sort -u > "$outdir/permutations/resolved.txt"
+    else
+        dnsx -l "$outdir/permutations/new_permutations.txt" \
+            -silent \
+            -rate "$threads" \
+            -retry 2 \
+            -o "$outdir/permutations/resolved.txt" 2>/dev/null
+    fi
+
+    if [[ ! -s "$outdir/permutations/resolved.txt" ]]; then
+        info "No permutations resolved"
+        return
+    fi
+
+    local resolved_count
+    resolved_count=$(wc -l < "$outdir/permutations/resolved.txt")
+    ok "Found $resolved_count resolved permutations"
+
+    # Probe with httpx (JSON output)
+    info "Probing resolved permutations..."
+    httpx -l "$outdir/permutations/resolved.txt" \
+        -silent -nc \
+        -location -ip -title -tech-detect -status-code -td \
+        -favicon -cdn -web-server \
+        -timeout 10 -retries 2 -rl 150 \
+        -threads "$threads" \
+        -json -o "$outdir/permutations/httpx.json"
+
+    # Generate human-readable format
+    jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
+        "$outdir/permutations/httpx.json" > "$outdir/permutations/httpx.txt" 2>/dev/null
+
+    # Extract URLs
+    jq -r '.url' "$outdir/permutations/httpx.json" \
+        > "$outdir/permutations/live.txt" 2>/dev/null
+
+    if [[ -s "$outdir/permutations/live.txt" ]]; then
+        local live_count
+        live_count=$(wc -l < "$outdir/permutations/live.txt")
+        ok "Found $live_count NEW live subdomains from permutations"
+
+        # Append new discoveries to main lists
+        cat "$outdir/permutations/resolved.txt" >> "$outdir/subdomains.txt"
+        sort -u -o "$outdir/subdomains.txt" "$outdir/subdomains.txt"
+
+        cat "$outdir/permutations/live.txt" >> "$outdir/clean_httpx.txt"
+        sort -u -o "$outdir/clean_httpx.txt" "$outdir/clean_httpx.txt"
+    else
+        info "No new live subdomains from permutations"
+    fi
+
+    ok "Permutation scanning completed"
 }

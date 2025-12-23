@@ -1,28 +1,122 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+# Max concurrent downloads
+MAX_PARALLEL=10
+
+# Max JS files to download (0 = unlimited)
+MAX_JS_FILES=500
+
 js_step() {
-    local outdir="$1"
+    local outdir="$1" threads="${2:-50}"
+
     [[ -s "$outdir/js.txt" ]] || { warn "No JS URLs collected; skipping JS analysis."; return; }
-    
+
     ok "Starting JavaScript analysis..."
-    ensure_dir "$outdir/js"
-    
-    info "Downloading JavaScript files..."
-    while read -r js; do
-        [[ -z "$js" ]] && continue
-        local name; name="$(basename "$js" | sed 's/\?.*//')"
-        info "Downloading: $name"
-        curl --max-time 30 -sL -H "$HEADER" "$js" -o "$outdir/js/$name"
-        command -v prettier >/dev/null && prettier --write "$outdir/js/$name" >/dev/null 2>&1 || true
-    done < "$outdir/js.txt"
-    
-    info "Extracting endpoints (LinkFinder)…"
-    python3 "$TOOLS/LinkFinder/linkfinder.py" -i "$outdir/js/*.js" -o cli > "$outdir/js/linkfinder.txt" || true
-    sort -fu "$outdir/js/linkfinder.txt" -o "$outdir/js/linkfinder.txt" || true
-    
-    info "Scanning JS for secrets (trufflehog)…"
-    trufflehog filesystem --directory="$outdir/js" --log-level=-1 --results=verified,unknown --no-json > "$outdir/js/trufflehog.txt" || true
-    
-    ok "JavaScript analysis completed"
+    ensure_dir "$outdir/js/files"
+    ensure_dir "$outdir/js/analysis"
+
+    local js_count
+    js_count=$(wc -l < "$outdir/js.txt")
+
+    # Limit JS files if too many
+    if [[ $MAX_JS_FILES -gt 0 && $js_count -gt $MAX_JS_FILES ]]; then
+        warn "Too many JS files ($js_count), limiting to $MAX_JS_FILES"
+        head -n "$MAX_JS_FILES" "$outdir/js.txt" > "$outdir/js_limited.txt"
+        js_count=$MAX_JS_FILES
+    else
+        cp "$outdir/js.txt" "$outdir/js_limited.txt"
+    fi
+
+    info "Downloading $js_count JavaScript files (parallel)..."
+
+    # Parallel download with unique filenames
+    while read -r js_url; do
+        [[ -z "$js_url" ]] && continue
+
+        (
+            # Create unique filename: domain_hash_basename
+            local domain basename hash filename
+            domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
+            basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
+            hash=$(echo "$js_url" | md5sum | cut -c1-8)
+            filename="${domain}_${hash}_${basename}"
+
+            # Download
+            curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$filename" 2>/dev/null
+
+            # Beautify if file exists and is not empty
+            if [[ -s "$outdir/js/files/$filename" ]]; then
+                prettier --write "$outdir/js/files/$filename" >/dev/null 2>&1 || true
+            fi
+        ) &
+
+        # Limit parallel jobs
+        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n
+    done < "$outdir/js_limited.txt"
+    wait
+
+    # Count downloaded files
+    local downloaded
+    downloaded=$(find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | wc -l)
+    ok "Downloaded $downloaded JavaScript files"
+
+    # Check for source maps
+    info "Checking for source maps..."
+    if [[ -s "$outdir/categorized/sourcemaps.txt" ]]; then
+        local map_count
+        map_count=$(wc -l < "$outdir/categorized/sourcemaps.txt")
+        warn "Found $map_count source map files (may contain original source code)"
+        cp "$outdir/categorized/sourcemaps.txt" "$outdir/js/analysis/sourcemaps.txt"
+    fi
+
+    # Extract endpoints with jsluice (preferred, faster)
+    info "Extracting endpoints and secrets..."
+    if command -v jsluice >/dev/null 2>&1; then
+        info "Running jsluice..."
+        find "$outdir/js/files" -name "*.js" -size +0 -exec cat {} \; 2>/dev/null \
+            | jsluice urls 2>/dev/null \
+            | jq -r '.url // empty' 2>/dev/null \
+            | sort -u > "$outdir/js/analysis/jsluice_urls.txt"
+
+        find "$outdir/js/files" -name "*.js" -size +0 -exec cat {} \; 2>/dev/null \
+            | jsluice secrets 2>/dev/null \
+            > "$outdir/js/analysis/jsluice_secrets.txt"
+
+        ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) URLs"
+    fi
+
+    # Extract endpoints with LinkFinder (fallback/additional)
+    info "Running LinkFinder..."
+    find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | while read -r jsfile; do
+        python3 "${TOOLS:-$HOME/tools}/LinkFinder/linkfinder.py" -i "$jsfile" -o cli 2>/dev/null
+    done | sort -fu > "$outdir/js/analysis/linkfinder.txt"
+    ok "LinkFinder found $(wc -l < "$outdir/js/analysis/linkfinder.txt" 2>/dev/null || echo 0) endpoints"
+
+    # Scan for secrets with trufflehog
+    info "Scanning for secrets (trufflehog)..."
+    trufflehog filesystem \
+        --directory="$outdir/js/files" \
+        --only-verified \
+        --json 2>/dev/null > "$outdir/js/analysis/trufflehog.json"
+
+    # Human readable trufflehog output
+    jq -r 'select(.Raw) | "\(.DetectorName): \(.Raw[:50])... in \(.SourceMetadata.Data.Filesystem.file)"' \
+        "$outdir/js/analysis/trufflehog.json" 2>/dev/null \
+        > "$outdir/js/analysis/trufflehog.txt"
+
+    local secrets_count
+    secrets_count=$(wc -l < "$outdir/js/analysis/trufflehog.txt" 2>/dev/null || echo 0)
+    if [[ $secrets_count -gt 0 ]]; then
+        warn "Found $secrets_count potential secrets!"
+    else
+        ok "No verified secrets found"
+    fi
+
+    # Combine all discovered endpoints
+    cat "$outdir/js/analysis/jsluice_urls.txt" \
+        "$outdir/js/analysis/linkfinder.txt" 2>/dev/null \
+        | sort -u > "$outdir/js/analysis/all_endpoints.txt"
+
+    ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
 }
