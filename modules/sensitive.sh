@@ -108,10 +108,17 @@ sensitive_step() {
 
         # Extract successful hits
         if [[ -s "$outdir/sensitive/paths/ffuf_results.json" ]]; then
-            jq -r '.results[] | "\(.url) [\(.status)] [\(.length)]"' \
-                "$outdir/sensitive/paths/ffuf_results.json" \
-                > "$outdir/sensitive/paths/found.txt" 2>/dev/null
-            ok "Found $(wc -l < "$outdir/sensitive/paths/found.txt" 2>/dev/null || echo 0) sensitive paths"
+            if validate_ffuf_json "$outdir/sensitive/paths/ffuf_results.json"; then
+                if jq -r '.results[] | "\(.url) [\(.status)] [\(.length)]"' \
+                    "$outdir/sensitive/paths/ffuf_results.json" \
+                    > "$outdir/sensitive/paths/found.txt" 2>/dev/null; then
+                    ok "Found $(wc -l < "$outdir/sensitive/paths/found.txt" 2>/dev/null || echo 0) sensitive paths"
+                else
+                    warn "Failed to parse ffuf results"
+                fi
+            else
+                warn "ffuf did not produce valid JSON output for sensitive paths"
+            fi
         fi
     fi
 
@@ -141,9 +148,15 @@ sensitive_step() {
         wait
 
         # Combine all backup results
-        cat "$outdir/sensitive/backups"/*.json 2>/dev/null \
-            | jq -r '.results[]? | "\(.url) [\(.status)]"' \
-            > "$outdir/sensitive/backups/all_backups.txt" 2>/dev/null
+        # Note: Multiple JSON files need to be validated individually
+        local backup_count=0
+        for json_file in "$outdir/sensitive/backups"/*.json; do
+            [[ -f "$json_file" ]] || continue
+            # Only process valid JSON files
+            if validate_json "$json_file" "backup scan results" 2>/dev/null; then
+                jq -r '.results[]? | "\(.url) [\(.status)]"' "$json_file" 2>/dev/null || true
+            fi
+        done > "$outdir/sensitive/backups/all_backups.txt"
 
         if [[ -s "$outdir/sensitive/backups/all_backups.txt" ]]; then
             ok "Found $(wc -l < "$outdir/sensitive/backups/all_backups.txt") potential backup files"

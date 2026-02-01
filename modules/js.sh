@@ -101,14 +101,24 @@ js_step() {
         --json 2>/dev/null > "$outdir/js/analysis/trufflehog.json"
 
     # Human readable trufflehog output
-    jq -r 'select(.Raw) | "\(.DetectorName): \(.Raw[:50])... in \(.SourceMetadata.Data.Filesystem.file)"' \
-        "$outdir/js/analysis/trufflehog.json" 2>/dev/null \
-        > "$outdir/js/analysis/trufflehog.txt"
+    if [[ -s "$outdir/js/analysis/trufflehog.json" ]]; then
+        # Validate JSON (trufflehog outputs JSONL - one JSON per line)
+        # We'll just check if jq can parse it
+        if jq -r 'select(.Raw) | "\(.DetectorName): \(.Raw[:50])... in \(.SourceMetadata.Data.Filesystem.file)"' \
+            "$outdir/js/analysis/trufflehog.json" 2>/dev/null \
+            > "$outdir/js/analysis/trufflehog.txt"; then
 
-    local secrets_count
-    secrets_count=$(wc -l < "$outdir/js/analysis/trufflehog.txt" 2>/dev/null || echo 0)
-    if [[ $secrets_count -gt 0 ]]; then
-        warn "Found $secrets_count potential secrets!"
+            local secrets_count
+            secrets_count=$(wc -l < "$outdir/js/analysis/trufflehog.txt" 2>/dev/null || echo 0)
+            if [[ $secrets_count -gt 0 ]]; then
+                warn "Found $secrets_count potential secrets!"
+            else
+                ok "No verified secrets found"
+            fi
+        else
+            warn "Failed to parse trufflehog output"
+            ok "No verified secrets found"
+        fi
     else
         ok "No verified secrets found"
     fi

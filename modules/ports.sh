@@ -29,18 +29,27 @@ ALL_PORTS="${PORTS_WEB},${PORTS_DEV},${PORTS_ADMIN},${PORTS_APPSERVER},${PORTS_A
 ports_step() {
     local outdir="$1" threads="${2:-50}"
 
-    [[ -s "$outdir/httpx.json" ]] || { warn "No httpx.json; skipping port scan."; return; }
+    # Validate httpx.json exists and is valid
+    if ! validate_json "$outdir/httpx.json" "httpx results"; then
+        warn "httpx.json not found or invalid; skipping port scan"
+        return
+    fi
+
     ok "Starting port scanning..."
     ensure_dir "$outdir/ports"
 
     # Extract IPs from JSON (exclude CDN IPs)
-    jq -r 'select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx.json" \
+    if ! jq -r 'select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx.json" \
         | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -u > "$outdir/ips.txt"
+        | sort -u > "$outdir/ips.txt" 2>/dev/null; then
+        warn "Failed to extract IPs from httpx.json"
+    fi
 
     # Also extract hostnames for non-IP targets
-    jq -r 'select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx.json" \
-        | sort -u > "$outdir/hosts_for_portscan.txt"
+    if ! jq -r 'select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx.json" \
+        | sort -u > "$outdir/hosts_for_portscan.txt" 2>/dev/null; then
+        warn "Failed to extract hostnames from httpx.json"
+    fi
 
     if [[ ! -s "$outdir/ips.txt" ]]; then
         warn "No IPs extracted, trying hostnames..."
@@ -80,12 +89,19 @@ ports_step() {
             -threads "$threads" \
             -json -o "$outdir/ports/httpx_ports.json"
 
-        # Generate human-readable format from JSON
-        jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
-            "$outdir/ports/httpx_ports.json" > "$outdir/ports/httpx_ports.txt" 2>/dev/null
-
-        if [[ -s "$outdir/ports/httpx_ports.txt" ]]; then
-            ok "Found $(wc -l < "$outdir/ports/httpx_ports.txt") HTTP services on non-standard ports"
+        # Validate httpx_ports.json before processing
+        if validate_json "$outdir/ports/httpx_ports.json" "httpx ports results"; then
+            # Generate human-readable format from JSON
+            if jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
+                "$outdir/ports/httpx_ports.json" > "$outdir/ports/httpx_ports.txt" 2>/dev/null; then
+                if [[ -s "$outdir/ports/httpx_ports.txt" ]]; then
+                    ok "Found $(wc -l < "$outdir/ports/httpx_ports.txt") HTTP services on non-standard ports"
+                fi
+            else
+                warn "Failed to parse httpx ports results"
+            fi
+        else
+            warn "httpx did not produce valid JSON for port probing"
         fi
     else
         info "No additional open ports found"

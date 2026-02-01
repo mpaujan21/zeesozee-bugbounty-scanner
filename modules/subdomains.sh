@@ -27,13 +27,13 @@ subdomains_step() {
     # Passive Enumeration (parallel)
     (
         info "Running subfinder"
-        subfinder -silent -d "$domain" -o "$outdir/subfinder.txt" &
+        subfinder -silent -d "$domain" -o "$outdir/subfinder.txt" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' &
 
         info "Running assetfinder"
-        assetfinder --subs-only "$domain" > "$outdir/assetfinder.txt" &
+        assetfinder --subs-only "$domain" > "$outdir/assetfinder.txt" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' &
 
         info "Running findomain"
-        findomain -t "$domain" -q > "$outdir/findomain.txt" &
+        findomain -t "$domain" -q > "$outdir/findomain.txt" 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' &
 
         info "Running amass (passive)"
         amass enum -passive -d "$domain" -o "$outdir/amass.txt" 2>/dev/null &
@@ -45,7 +45,7 @@ subdomains_step() {
             | sort -u > "$outdir/crtsh.txt" &
 
         wait
-    ) 2>/dev/null
+    )
 
     # Combine all results
     cat "$outdir"/subfinder.txt \

@@ -18,14 +18,26 @@ probe_step() {
     -timeout 10 -retries 2 -rl 150 \
     -H "$HEADER" -threads "$threads" \
     -json -o "$outdir/httpx.json"
-    
+
+    # Validate JSON output
+    if ! validate_json "$outdir/httpx.json" "httpx results"; then
+        warn "httpx did not produce valid JSON output"
+        return 1
+    fi
+
     # Generate human-readable format from JSON
-    jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]", "[\(.host // "")]"] | join(" ")' \
-    "$outdir/httpx.json" > "$outdir/httpx.txt" 2>/dev/null
-    
+    if ! jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]", "[\(.host // "")]"] | join(" ")' \
+        "$outdir/httpx.json" > "$outdir/httpx.txt" 2>/dev/null; then
+        err "Failed to generate human-readable httpx output"
+        return 1
+    fi
+
     # Extract clean URL list
-    jq -r '.url' "$outdir/httpx.json" > "$outdir/clean_httpx.txt" 2>/dev/null
-    rm "$outdir/httpx.json"
-    
+    if ! jq -r '.url' "$outdir/httpx.json" > "$outdir/clean_httpx.txt" 2>/dev/null; then
+        err "Failed to extract URLs from httpx output"
+        return 1
+    fi
+
+    # Keep httpx.json for downstream modules (ports.sh needs it for CDN filtering)
     ok "Found $(wc -l < "$outdir/clean_httpx.txt" 2>/dev/null || echo 0) live hosts"
 }
