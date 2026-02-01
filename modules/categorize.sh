@@ -4,11 +4,11 @@
 categorize_step() {
     local outdir="$1"
     ok "Categorizing URLs..."
-
+    
     [[ -s "$outdir/uro.txt" ]] || { warn "No URLs found; skipping categorization."; return; }
-
+    
     ensure_dir "$outdir/categorized"
-
+    
     # GF patterns (parallel)
     info "Running GF patterns..."
     (
@@ -28,7 +28,7 @@ categorize_step() {
         gf php-errors < "$outdir/uro.txt" > "$outdir/categorized/php_errors.txt" &
         wait
     ) 2>/dev/null
-
+    
     # Report counts
     info "GF pattern results:"
     for f in "$outdir/categorized"/*.txt; do
@@ -39,7 +39,7 @@ categorize_step() {
             [[ $count -gt 0 ]] && info "  $name: $count URLs"
         }
     done
-
+    
     # Extract URL components with unfurl
     info "Extracting URL components..."
     unfurl --unique keys < "$outdir/urls.txt" > "$outdir/categorized/keys.txt" 2>/dev/null
@@ -47,17 +47,17 @@ categorize_step() {
     unfurl --unique values < "$outdir/urls.txt" > "$outdir/categorized/values.txt" 2>/dev/null
     unfurl --unique format %d%p < "$outdir/urls.txt" > "$outdir/categorized/paths.txt" 2>/dev/null
     unfurl --unique domains < "$outdir/urls.txt" > "$outdir/categorized/domains.txt" 2>/dev/null
-
+    
     # Extract JavaScript files
     info "Extracting JavaScript URLs..."
     grep -iE '\.js(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/js.txt"
     ok "Found $(wc -l < "$outdir/js.txt" 2>/dev/null || echo 0) JavaScript files"
-
+    
     # Extract JSON files
     grep -iE '\.json(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/categorized/json_files.txt"
-
+    
     # Extract source map files
     grep -iE '\.map(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/categorized/sourcemaps.txt"
-
+    
     ok "Categorization completed"
 }

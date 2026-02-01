@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /home/pojan/hack/scripts/zee-scanner log --oneline -10)",
+      "Bash(wc:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}
