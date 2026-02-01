@@ -46,11 +46,11 @@ permutation_step() {
         wait
     )
 
-    # Combine all permutations
-    cat "$outdir/permutations/alterx.txt" \
+    # Combine all permutations (optimized: direct sort without cat)
+    sort -u "$outdir/permutations/alterx.txt" \
         "$outdir/permutations/dnsgen.txt" \
-        "$outdir/permutations/gotator.txt" 2>/dev/null \
-        | sort -u > "$outdir/permutations/all_permutations.txt"
+        "$outdir/permutations/gotator.txt" \
+        -o "$outdir/permutations/all_permutations.txt" 2>/dev/null
 
     # Dedupe - remove already known subdomains
     if [[ -s "$outdir/permutations/all_permutations.txt" ]]; then
@@ -107,13 +107,18 @@ permutation_step() {
         -threads "$threads" \
         -json -o "$outdir/permutations/httpx.json"
 
-    # Generate human-readable format
-    jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
-        "$outdir/permutations/httpx.json" > "$outdir/permutations/httpx.txt" 2>/dev/null
+    # Validate JSON and extract results
+    if validate_json "$outdir/permutations/httpx.json" "permutation httpx results"; then
+        # Generate human-readable format
+        jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
+            "$outdir/permutations/httpx.json" > "$outdir/permutations/httpx.txt" 2>/dev/null
 
-    # Extract URLs
-    jq -r '.url' "$outdir/permutations/httpx.json" \
-        > "$outdir/permutations/live.txt" 2>/dev/null
+        # Extract URLs using centralized function
+        extract_httpx_urls "$outdir/permutations/httpx.json" "$outdir/permutations/live.txt"
+    else
+        warn "httpx did not produce valid JSON for permutations"
+        touch "$outdir/permutations/live.txt"
+    fi
 
     if [[ -s "$outdir/permutations/live.txt" ]]; then
         local live_count

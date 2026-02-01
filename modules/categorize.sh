@@ -48,16 +48,20 @@ categorize_step() {
     unfurl --unique format %d%p < "$outdir/urls.txt" > "$outdir/categorized/paths.txt" 2>/dev/null
     unfurl --unique domains < "$outdir/urls.txt" > "$outdir/categorized/domains.txt" 2>/dev/null
     
-    # Extract JavaScript files
-    info "Extracting JavaScript URLs..."
-    grep -iE '\.js(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/js.txt"
+    # Extract JavaScript, JSON, and source map files (optimized: single awk pass)
+    info "Extracting JavaScript, JSON, and source map URLs..."
+    awk -F'?' '
+        tolower($0) ~ /\.js($|\?)/ { js[tolower($0)] = $0 }
+        tolower($0) ~ /\.json($|\?)/ { json[tolower($0)] = $0 }
+        tolower($0) ~ /\.map($|\?)/ { map[tolower($0)] = $0 }
+        END {
+            for (url in js) print js[url] > "'"$outdir"'/js.txt"
+            for (url in json) print json[url] > "'"$outdir"'/categorized/json_files.txt"
+            for (url in map) print map[url] > "'"$outdir"'/categorized/sourcemaps.txt"
+        }
+    ' "$outdir/urls.txt" 2>/dev/null
+
     ok "Found $(wc -l < "$outdir/js.txt" 2>/dev/null || echo 0) JavaScript files"
-    
-    # Extract JSON files
-    grep -iE '\.json(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/categorized/json_files.txt"
-    
-    # Extract source map files
-    grep -iE '\.map(\?|$)' "$outdir/urls.txt" 2>/dev/null | sort -fu > "$outdir/categorized/sourcemaps.txt"
     
     ok "Categorization completed"
 }

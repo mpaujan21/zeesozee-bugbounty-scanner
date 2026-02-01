@@ -26,10 +26,11 @@ ${BOLD}Required Arguments:${RESET}
   domain        Target domain to scan
 
 ${BOLD}Options:${RESET}
-  --threads N     Number of concurrent threads (default: 50, range: 1-1000)
-  --yes-js y|n    Enable JavaScript analysis (interactive if not specified)
-  --yes-ports y|n Enable port scanning (interactive if not specified)
-  --help          Show this help message
+  --threads N       Number of concurrent threads (default: 50, range: 1-1000)
+  --yes-js y|n      Enable JavaScript analysis (interactive if not specified)
+  --yes-ports y|n   Enable port scanning (interactive if not specified)
+  --force-restart   Clear previous scan state and restart from beginning
+  --help            Show this help message
 
 ${BOLD}Examples:${RESET}
   $0 acme acme.com
@@ -65,12 +66,14 @@ fi
 HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/$1"; DOMAIN="$2"; shift 2
 THREADS="${SCAN_THREADS:-50}"
 YES_JS="ask"; YES_PORTS="ask"
+FORCE_RESTART=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --threads) THREADS="${2:-$THREADS}"; shift 2;;
         --yes-js) YES_JS="${2:-ask}"; shift 2;;
         --yes-ports) YES_PORTS="${2:-ask}"; shift 2;;
+        --force-restart) FORCE_RESTART=true; shift;;
         --help|-h) show_help; exit 0;;
         *) warn "Unknown option: $1"; shift;;
     esac
@@ -90,21 +93,80 @@ check_required_tools || exit 1
 ensure_dir "$OUTDIR"
 pushd "$OUTDIR" >/dev/null
 
+# Initialize resume capability
+init_state "$(pwd)"
+
+# Handle force restart
+if [[ "$FORCE_RESTART" == "true" ]]; then
+    clear_state
+else
+    resume_info
+fi
+
 # prompts (if not pre-answered)
 [[ "$YES_JS" == "ask" ]] && YES_JS="$(prompt_yn 'Run JS Analysis?')"
 [[ "$YES_PORTS" == "ask" ]] && YES_PORTS="$(prompt_yn 'Run Port Scanning?')"
 
-# pipeline
-subdomains_step "$DOMAIN" "$(pwd)"
-probe_step "$(pwd)" "$THREADS"
-[[ "$YES_PORTS" == "y" ]] && ports_step "$(pwd)" "$THREADS"
+# pipeline with resume capability
+if ! is_completed "subdomains"; then
+    subdomains_step "$DOMAIN" "$(pwd)" && mark_completed "subdomains"
+else
+    info "Skipping subdomains (already completed)"
+fi
+
+if ! is_completed "probe"; then
+    probe_step "$(pwd)" "$THREADS" && mark_completed "probe"
+else
+    info "Skipping probing (already completed)"
+fi
+
+if [[ "$YES_PORTS" == "y" ]]; then
+    if ! is_completed "ports"; then
+        ports_step "$(pwd)" "$THREADS" && mark_completed "ports"
+    else
+        info "Skipping port scanning (already completed)"
+    fi
+fi
+
 # permutation_step "$(pwd)"
-urls_step "$(pwd)" "$THREADS" "$DOMAIN"
-categorize_step "$(pwd)"
-sensitive_step "$(pwd)" "$THREADS"
-[[ "$YES_JS" == "y" ]] && js_step "$(pwd)"
-report_step "$(pwd)" "$DOMAIN"
-python3 "$HACK/scripts/export_scan_supabase.py" "$FOLDERNAME" --subs "$OUTDIR/httpx.txt"
+
+if ! is_completed "urls"; then
+    urls_step "$(pwd)" "$THREADS" "$DOMAIN" && mark_completed "urls"
+else
+    info "Skipping URL discovery (already completed)"
+fi
+
+if ! is_completed "categorize"; then
+    categorize_step "$(pwd)" && mark_completed "categorize"
+else
+    info "Skipping categorization (already completed)"
+fi
+
+if ! is_completed "sensitive"; then
+    sensitive_step "$(pwd)" "$THREADS" && mark_completed "sensitive"
+else
+    info "Skipping sensitive file discovery (already completed)"
+fi
+
+if [[ "$YES_JS" == "y" ]]; then
+    if ! is_completed "js"; then
+        js_step "$(pwd)" && mark_completed "js"
+    else
+        info "Skipping JS analysis (already completed)"
+    fi
+fi
+
+if ! is_completed "report"; then
+    report_step "$(pwd)" "$DOMAIN" && mark_completed "report"
+else
+    info "Skipping report generation (already completed)"
+fi
+
+if ! is_completed "export"; then
+    python3 "$HACK/scripts/export_scan_supabase.py" "$FOLDERNAME" --subs "$OUTDIR/httpx.txt" && mark_completed "export"
+else
+    info "Skipping export (already completed)"
+fi
 
 ok "Scan completed successfully."
 ok "Results saved in: $(pwd)"

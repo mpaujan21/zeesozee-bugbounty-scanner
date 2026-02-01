@@ -24,19 +24,19 @@ subdomains_step() {
 
     ok "Starting Subdomain Enumeration..."
 
-    # Passive Enumeration (parallel)
+    # Passive Enumeration (parallel, with pre-deduplication)
     (
         info "Running subfinder"
-        subfinder -silent -d "$domain" -o "$outdir/subfinder.txt" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' &
+        subfinder -silent -d "$domain" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' | sort -u > "$outdir/subfinder.txt" &
 
         info "Running assetfinder"
-        assetfinder --subs-only "$domain" > "$outdir/assetfinder.txt" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' &
+        assetfinder --subs-only "$domain" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' | sort -u > "$outdir/assetfinder.txt" &
 
         info "Running findomain"
-        findomain -t "$domain" -q > "$outdir/findomain.txt" 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' &
+        findomain -t "$domain" -q 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' | sort -u > "$outdir/findomain.txt" &
 
         info "Running amass (passive)"
-        amass enum -passive -d "$domain" -o "$outdir/amass.txt" 2>/dev/null &
+        amass enum -passive -d "$domain" 2>/dev/null | sort -u > "$outdir/amass.txt" &
 
         info "Querying crt.sh"
         curl -s "https://crt.sh/?q=%25.${domain}&output=json" 2>/dev/null \
@@ -47,13 +47,13 @@ subdomains_step() {
         wait
     )
 
-    # Combine all results
-    cat "$outdir"/subfinder.txt \
+    # Combine all results (optimized: direct sort without cat)
+    grep -hE "\.${domain}$" \
+        "$outdir"/subfinder.txt \
         "$outdir"/assetfinder.txt \
         "$outdir"/findomain.txt \
         "$outdir"/amass.txt \
         "$outdir"/crtsh.txt 2>/dev/null \
-        | grep -E "\.${domain}$" \
         | sort -fu > "$outdir/subdomains_raw.txt"
 
     # Wildcard Detection (informational)

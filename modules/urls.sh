@@ -11,46 +11,46 @@ urls_step() {
     
     [[ -s "$outdir/clean_httpx.txt" ]] || { warn "No live subdomains; skipping URL discovery."; return; }
     
-    # Passive URL discovery (parallel)
+    # Passive URL discovery (parallel, with pre-deduplication)
     (
         info "Running waybackurls"
-        waybackurls < "$outdir/clean_httpx.txt" > "$outdir/urls/waybackurls.txt" 2>/dev/null &
-        
+        waybackurls < "$outdir/clean_httpx.txt" 2>/dev/null | sort -u > "$outdir/urls/waybackurls.txt" &
+
         info "Running waymore"
         waymore -i "$domain" -mode U -oU "$outdir/urls/waymore.txt" 2>/dev/null &
-        
+
         info "Running gau"
-        gau -l "$outdir/clean_httpx.txt" --threads "$threads" --blacklist "$BLACKLIST" \
-        -o "$outdir/urls/gau.txt" 2>/dev/null &
-        
+        gau -l "$outdir/clean_httpx.txt" --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
+            | sort -u > "$outdir/urls/gau.txt" &
+
         wait
     )
     
-    # Active crawling (parallel)
+    # Active crawling (parallel, with pre-deduplication)
     (
         info "Running katana"
         katana -silent -nc -jc -fs fqdn \
         -list "$outdir/clean_httpx.txt" \
         -f url -ef "$BLACKLIST" \
-        -H "$HEADER" -c "$threads" \
-        -o "$outdir/urls/katana.txt" 2>/dev/null &
-        
+        -H "$HEADER" -c "$threads" 2>/dev/null \
+        | sort -u > "$outdir/urls/katana.txt" &
+
         info "Running gospider"
         gospider -S "$outdir/clean_httpx.txt" \
         -c "$threads" -d 2 --blacklist "$BLACKLIST" \
         -q -o "$outdir/urls/gospider_raw" 2>/dev/null && \
-        cat "$outdir/urls/gospider_raw"/* 2>/dev/null | grep -oE 'https?://[^ ]+' | sort -u > "$outdir/urls/gospider.txt" &
-        
+        grep -hoE 'https?://[^ ]+' "$outdir/urls/gospider_raw"/* 2>/dev/null | sort -u > "$outdir/urls/gospider.txt" &
+
         wait
     )
     
-    # Combine all URLs
-    cat "$outdir"/urls/waybackurls.txt \
-    "$outdir"/urls/waymore.txt \
-    "$outdir"/urls/gau.txt \
-    "$outdir"/urls/katana.txt \
-    "$outdir"/urls/gospider.txt 2>/dev/null \
-    | sort -u > "$outdir/urls/all_urls.txt"
+    # Combine all URLs (optimized: direct sort without cat)
+    sort -u "$outdir"/urls/waybackurls.txt \
+        "$outdir"/urls/waymore.txt \
+        "$outdir"/urls/gau.txt \
+        "$outdir"/urls/katana.txt \
+        "$outdir"/urls/gospider.txt \
+        -o "$outdir/urls/all_urls.txt" 2>/dev/null
     
     # Scope filtering (keep only target domain)
     if [[ -n "$domain" ]]; then
