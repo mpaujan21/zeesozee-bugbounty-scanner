@@ -13,33 +13,58 @@ urls_step() {
     
     # Passive URL discovery (parallel, with pre-deduplication)
     (
-        info "Running waybackurls"
-        waybackurls < "$outdir/clean_httpx.txt" 2>/dev/null | sort -u > "$outdir/urls/waybackurls.txt" &
+        if is_tool_enabled "ENABLE_WAYBACKURLS"; then
+            info "Running waybackurls"
+            waybackurls < "$outdir/clean_httpx.txt" 2>/dev/null | sort -u > "$outdir/urls/waybackurls.txt" &
+        else
+            info "Skipping waybackurls (disabled in config)"
+            touch "$outdir/urls/waybackurls.txt"
+        fi
 
-        info "Running waymore"
-        waymore -i "$domain" -mode U -oU "$outdir/urls/waymore.txt" 2>/dev/null &
+        if is_tool_enabled "ENABLE_WAYMORE"; then
+            info "Running waymore"
+            waymore -i "$domain" -mode U -oU "$outdir/urls/waymore.txt" 2>/dev/null &
+        else
+            info "Skipping waymore (disabled in config)"
+            touch "$outdir/urls/waymore.txt"
+        fi
 
-        info "Running gau"
-        gau -l "$outdir/clean_httpx.txt" --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
-            | sort -u > "$outdir/urls/gau.txt" &
+        if is_tool_enabled "ENABLE_GAU"; then
+            info "Running gau"
+            gau -l "$outdir/clean_httpx.txt" --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
+                | sort -u > "$outdir/urls/gau.txt" &
+        else
+            info "Skipping gau (disabled in config)"
+            touch "$outdir/urls/gau.txt"
+        fi
 
         wait
     )
     
     # Active crawling (parallel, with pre-deduplication)
     (
-        info "Running katana"
-        katana -silent -nc -jc -fs fqdn \
-        -list "$outdir/clean_httpx.txt" \
-        -f url -ef "$BLACKLIST" \
-        -H "$HEADER" -c "$threads" 2>/dev/null \
-        | sort -u > "$outdir/urls/katana.txt" &
+        if is_tool_enabled "ENABLE_KATANA"; then
+            info "Running katana"
+            katana -silent -nc -jc -fs fqdn \
+            -list "$outdir/clean_httpx.txt" \
+            -f url -ef "$BLACKLIST" \
+            -H "$HEADER" -c "$threads" 2>/dev/null \
+            | sort -u > "$outdir/urls/katana.txt" &
+        else
+            info "Skipping katana (disabled in config)"
+            touch "$outdir/urls/katana.txt"
+        fi
 
-        info "Running gospider"
-        gospider -S "$outdir/clean_httpx.txt" \
-        -c "$threads" -d 2 --blacklist "$BLACKLIST" \
-        -q -o "$outdir/urls/gospider_raw" 2>/dev/null && \
-        grep -hoE 'https?://[^ ]+' "$outdir/urls/gospider_raw"/* 2>/dev/null | sort -u > "$outdir/urls/gospider.txt" &
+        if is_tool_enabled "ENABLE_GOSPIDER"; then
+            info "Running gospider"
+            gospider -S "$outdir/clean_httpx.txt" \
+            -c "$threads" -d 2 --blacklist "$BLACKLIST" \
+            -q -o "$outdir/urls/gospider_raw" 2>/dev/null && \
+            grep -hoE 'https?://[^ ]+' "$outdir/urls/gospider_raw"/* 2>/dev/null | sort -u > "$outdir/urls/gospider.txt" &
+        else
+            info "Skipping gospider (disabled in config)"
+            touch "$outdir/urls/gospider.txt"
+        fi
 
         wait
     )

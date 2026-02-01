@@ -1,0 +1,79 @@
+# Zee Scanner Configuration File
+# Copy this file to scan.conf and customize as needed
+# Format: TOOL_NAME=true/false (case-insensitive)
+
+# ============================================
+# SUBDOMAIN ENUMERATION TOOLS
+# ============================================
+# Fast passive enumeration tools
+ENABLE_SUBFINDER=true
+ENABLE_ASSETFINDER=true
+ENABLE_FINDOMAIN=true
+
+# Slow but comprehensive (can take 10+ minutes)
+ENABLE_AMASS=true
+
+# Certificate transparency lookup
+ENABLE_CRTSH=true
+
+# ============================================
+# PERMUTATION TOOLS (if enabled)
+# ============================================
+ENABLE_ALTERX=true
+ENABLE_DNSGEN=true
+ENABLE_GOTATOR=true
+
+# ============================================
+# URL DISCOVERY TOOLS
+# ============================================
+# Passive URL collection (fast)
+ENABLE_WAYBACKURLS=true
+ENABLE_WAYMORE=true
+ENABLE_GAU=true
+
+# Active crawling (slower, more thorough)
+ENABLE_KATANA=true
+ENABLE_GOSPIDER=true
+
+# ============================================
+# SCAN BEHAVIOR
+# ============================================
+# Maximum JS files to download (0 = unlimited)
+MAX_JS_FILES=500
+
+# Maximum parallel downloads for JS files
+MAX_PARALLEL_JS=10
+
+# Maximum parallel backup scans
+MAX_PARALLEL_BACKUPS=10
+
+# ============================================
+# PERFORMANCE TUNING
+# ============================================
+# Default thread count (can be overridden with --threads)
+# SCAN_THREADS=50
+
+# Rate limiting for httpx (requests per second)
+# HTTPX_RATE_LIMIT=150
+
+# Timeout for HTTP requests (seconds)
+# HTTPX_TIMEOUT=10
+
+# ============================================
+# QUICK PRESETS
+# ============================================
+# Uncomment one of these to quickly apply a preset
+
+# Fast scan (skip slow tools)
+# ENABLE_AMASS=false
+# ENABLE_GOSPIDER=false
+
+# Thorough scan (enable everything, takes longer)
+# ENABLE_AMASS=true
+# MAX_JS_FILES=1000
+
+# Minimal scan (fastest, least coverage)
+# ENABLE_AMASS=false
+# ENABLE_GOSPIDER=false
+# ENABLE_WAYMORE=false
+# ENABLE_KATANA=false

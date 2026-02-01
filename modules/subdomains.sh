@@ -26,23 +26,48 @@ subdomains_step() {
 
     # Passive Enumeration (parallel, with pre-deduplication)
     (
-        info "Running subfinder"
-        subfinder -silent -d "$domain" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' | sort -u > "$outdir/subfinder.txt" &
+        if is_tool_enabled "ENABLE_SUBFINDER"; then
+            info "Running subfinder"
+            subfinder -silent -d "$domain" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' | sort -u > "$outdir/subfinder.txt" &
+        else
+            info "Skipping subfinder (disabled in config)"
+            touch "$outdir/subfinder.txt"
+        fi
 
-        info "Running assetfinder"
-        assetfinder --subs-only "$domain" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' | sort -u > "$outdir/assetfinder.txt" &
+        if is_tool_enabled "ENABLE_ASSETFINDER"; then
+            info "Running assetfinder"
+            assetfinder --subs-only "$domain" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' | sort -u > "$outdir/assetfinder.txt" &
+        else
+            info "Skipping assetfinder (disabled in config)"
+            touch "$outdir/assetfinder.txt"
+        fi
 
-        info "Running findomain"
-        findomain -t "$domain" -q 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' | sort -u > "$outdir/findomain.txt" &
+        if is_tool_enabled "ENABLE_FINDOMAIN"; then
+            info "Running findomain"
+            findomain -t "$domain" -q 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' | sort -u > "$outdir/findomain.txt" &
+        else
+            info "Skipping findomain (disabled in config)"
+            touch "$outdir/findomain.txt"
+        fi
 
-        info "Running amass (passive)"
-        amass enum -passive -d "$domain" 2>/dev/null | sort -u > "$outdir/amass.txt" &
+        if is_tool_enabled "ENABLE_AMASS"; then
+            info "Running amass (passive)"
+            amass enum -passive -d "$domain" 2>/dev/null | sort -u > "$outdir/amass.txt" &
+        else
+            info "Skipping amass (disabled in config)"
+            touch "$outdir/amass.txt"
+        fi
 
-        info "Querying crt.sh"
-        curl -s "https://crt.sh/?q=%25.${domain}&output=json" 2>/dev/null \
-            | jq -r '.[].name_value' 2>/dev/null \
-            | sed 's/\*\.//g' \
-            | sort -u > "$outdir/crtsh.txt" &
+        if is_tool_enabled "ENABLE_CRTSH"; then
+            info "Querying crt.sh"
+            curl -s "https://crt.sh/?q=%25.${domain}&output=json" 2>/dev/null \
+                | jq -r '.[].name_value' 2>/dev/null \
+                | sed 's/\*\.//g' \
+                | sort -u > "$outdir/crtsh.txt" &
+        else
+            info "Skipping crt.sh (disabled in config)"
+            touch "$outdir/crtsh.txt"
+        fi
 
         wait
     )

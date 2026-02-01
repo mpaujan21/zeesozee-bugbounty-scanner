@@ -31,17 +31,32 @@ permutation_step() {
 
     # Generate permutations with available tools (parallel)
     (
-        info "Running alterx"
-        alterx -l "$outdir/permutations/input_domains.txt" -silent \
-            -o "$outdir/permutations/alterx.txt" 2>/dev/null &
+        if is_tool_enabled "ENABLE_ALTERX"; then
+            info "Running alterx"
+            alterx -l "$outdir/permutations/input_domains.txt" -silent \
+                -o "$outdir/permutations/alterx.txt" 2>/dev/null &
+        else
+            info "Skipping alterx (disabled in config)"
+            touch "$outdir/permutations/alterx.txt"
+        fi
 
-        info "Running dnsgen"
-        dnsgen "$outdir/permutations/input_domains.txt" \
-            > "$outdir/permutations/dnsgen.txt" 2>/dev/null &
+        if is_tool_enabled "ENABLE_DNSGEN"; then
+            info "Running dnsgen"
+            dnsgen "$outdir/permutations/input_domains.txt" \
+                > "$outdir/permutations/dnsgen.txt" 2>/dev/null &
+        else
+            info "Skipping dnsgen (disabled in config)"
+            touch "$outdir/permutations/dnsgen.txt"
+        fi
 
-        info "Running gotator"
-        gotator -sub "$outdir/permutations/input_domains.txt" -perm -silent \
-            > "$outdir/permutations/gotator.txt" 2>/dev/null &
+        if is_tool_enabled "ENABLE_GOTATOR"; then
+            info "Running gotator"
+            gotator -sub "$outdir/permutations/input_domains.txt" -perm -silent \
+                > "$outdir/permutations/gotator.txt" 2>/dev/null &
+        else
+            info "Skipping gotator (disabled in config)"
+            touch "$outdir/permutations/gotator.txt"
+        fi
 
         wait
     )

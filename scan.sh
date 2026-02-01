@@ -29,6 +29,7 @@ ${BOLD}Options:${RESET}
   --threads N       Number of concurrent threads (default: 50, range: 1-1000)
   --yes-js y|n      Enable JavaScript analysis (interactive if not specified)
   --yes-ports y|n   Enable port scanning (interactive if not specified)
+  --config FILE     Load configuration from FILE (default: scan.conf or ~/.zee-scanner.conf)
   --force-restart   Clear previous scan state and restart from beginning
   --help            Show this help message
 
@@ -67,6 +68,7 @@ HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/$1"; DOMAIN="$2";
 THREADS="${SCAN_THREADS:-50}"
 YES_JS="ask"; YES_PORTS="ask"
 FORCE_RESTART=false
+CONFIG_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -74,10 +76,31 @@ while [[ $# -gt 0 ]]; do
         --yes-js) YES_JS="${2:-ask}"; shift 2;;
         --yes-ports) YES_PORTS="${2:-ask}"; shift 2;;
         --force-restart) FORCE_RESTART=true; shift;;
+        --config) CONFIG_FILE="$2"; shift 2;;
         --help|-h) show_help; exit 0;;
         *) warn "Unknown option: $1"; shift;;
     esac
 done
+
+# Load configuration
+set_default_config
+
+# Try to load config file
+if [[ -n "$CONFIG_FILE" ]]; then
+    # User specified a config file
+    load_config "$CONFIG_FILE" || {
+        err "Failed to load config file: $CONFIG_FILE"
+        exit 1
+    }
+elif [[ -f "$SCRIPT_DIR/scan.conf" ]]; then
+    # Load default config if exists
+    load_config "$SCRIPT_DIR/scan.conf"
+elif [[ -f "$HOME/.zee-scanner.conf" ]]; then
+    # Load user config from home directory
+    load_config "$HOME/.zee-scanner.conf"
+else
+    info "No config file found, using defaults"
+fi
 
 # Validate inputs
 info "Validating inputs..."

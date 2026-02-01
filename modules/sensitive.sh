@@ -59,6 +59,8 @@ SENSITIVE_PATHS=(
 
 sensitive_step() {
     local outdir="$1" threads="${2:-50}"
+    local MAX_PARALLEL_BACKUPS="${MAX_PARALLEL_BACKUPS:-10}"
+
     ok "Discovering sensitive files..."
     ensure_dir "$outdir/sensitive"
 
@@ -142,8 +144,8 @@ sensitive_step() {
                     -o "$outdir/sensitive/backups/${domain}.json" \
                     -of json 2>/dev/null &
 
-            # Limit parallel jobs
-            [[ $(jobs -r -p | wc -l) -ge 10 ]] && wait -n
+            # Limit parallel jobs (configurable)
+            [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_BACKUPS ]] && wait -n
         done < "$outdir/clean_httpx.txt"
         wait
 

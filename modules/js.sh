@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-# Max concurrent downloads
-MAX_PARALLEL=10
-
-# Max JS files to download (0 = unlimited)
-MAX_JS_FILES=500
-
 js_step() {
     local outdir="$1" threads="${2:-50}"
+
+    # Use config values (set by scan.sh)
+    local MAX_PARALLEL="${MAX_PARALLEL_JS:-10}"
+    local MAX_JS_FILES="${MAX_JS_FILES:-500}"
 
     [[ -s "$outdir/js.txt" ]] || { warn "No JS URLs collected; skipping JS analysis."; return; }
 
