@@ -32,7 +32,7 @@ probe_step() {
         return 1
     fi
 
-    # Extract clean URL list
+    # Extract clean URL list (all status codes — downstream modules filter as needed)
     if ! jq -r '.url' "$outdir/httpx.json" > "$outdir/clean_httpx.txt" 2>/dev/null; then
         err "Failed to extract URLs from httpx output"
         return 1

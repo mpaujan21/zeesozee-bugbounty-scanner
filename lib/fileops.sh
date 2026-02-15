@@ -111,8 +111,8 @@ extract_httpx_urls() {
         return 1
     fi
 
-    # Extract URLs from successful responses (200-299 status codes)
-    if ! jq -r 'select(.status_code >= 200 and .status_code < 300) | .url' "$json_file" > "$output_file" 2>/dev/null; then
+    # Extract URLs from responses (2xx, 3xx redirects, 401, 403)
+    if ! jq -r 'select((.status_code >= 200 and .status_code < 400) or .status_code == 401 or .status_code == 403) | .url' "$json_file" > "$output_file" 2>/dev/null; then
         err "Failed to extract URLs from httpx JSON"
         return 1
     fi
