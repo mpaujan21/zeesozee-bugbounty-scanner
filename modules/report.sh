@@ -46,6 +46,24 @@ report_step() {
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
 
+    # Per-tool effectiveness metrics
+    local tool_subfinder tool_assetfinder tool_findomain tool_amass tool_crtsh
+    local tool_waybackurls tool_waymore tool_gau tool_katana tool_gospider
+    local tool_jsluice tool_linkfinder
+
+    tool_subfinder=$(count_lines "$outdir/subfinder.txt")
+    tool_assetfinder=$(count_lines "$outdir/assetfinder.txt")
+    tool_findomain=$(count_lines "$outdir/findomain.txt")
+    tool_amass=$(count_lines "$outdir/amass.txt")
+    tool_crtsh=$(count_lines "$outdir/crtsh.txt")
+    tool_waybackurls=$(count_lines "$outdir/urls/waybackurls.txt")
+    tool_waymore=$(count_lines "$outdir/urls/waymore.txt")
+    tool_gau=$(count_lines "$outdir/urls/gau.txt")
+    tool_katana=$(count_lines "$outdir/urls/katana.txt")
+    tool_gospider=$(count_lines "$outdir/urls/gospider.txt")
+    tool_jsluice=$(count_lines "$outdir/js/analysis/jsluice_urls.txt")
+    tool_linkfinder=$(count_lines "$outdir/js/analysis/linkfinder.txt")
+
     # Generate Markdown Report
     cat > "$report_md" << EOF
 # Bug Bounty Scan Report
@@ -141,6 +159,43 @@ EOF
         fi
     done
 
+    # Tool effectiveness metrics
+    echo >> "$report_md"
+    echo "---" >> "$report_md"
+    echo >> "$report_md"
+    echo "## Tool Effectiveness" >> "$report_md"
+    echo >> "$report_md"
+    echo "### Subdomain Enumeration" >> "$report_md"
+    echo "| Tool | Results |" >> "$report_md"
+    echo "|------|---------|" >> "$report_md"
+    [[ $tool_subfinder -gt 0 ]] && echo "| subfinder | $tool_subfinder |" >> "$report_md"
+    [[ $tool_assetfinder -gt 0 ]] && echo "| assetfinder | $tool_assetfinder |" >> "$report_md"
+    [[ $tool_findomain -gt 0 ]] && echo "| findomain | $tool_findomain |" >> "$report_md"
+    [[ $tool_amass -gt 0 ]] && echo "| amass | $tool_amass |" >> "$report_md"
+    [[ $tool_crtsh -gt 0 ]] && echo "| crt.sh | $tool_crtsh |" >> "$report_md"
+    echo "| **Combined (deduped)** | **$subdomains_total** |" >> "$report_md"
+    echo >> "$report_md"
+    echo "### URL Discovery" >> "$report_md"
+    echo "| Tool | Results |" >> "$report_md"
+    echo "|------|---------|" >> "$report_md"
+    [[ $tool_waybackurls -gt 0 ]] && echo "| waybackurls | $tool_waybackurls |" >> "$report_md"
+    [[ $tool_waymore -gt 0 ]] && echo "| waymore | $tool_waymore |" >> "$report_md"
+    [[ $tool_gau -gt 0 ]] && echo "| gau | $tool_gau |" >> "$report_md"
+    [[ $tool_katana -gt 0 ]] && echo "| katana | $tool_katana |" >> "$report_md"
+    [[ $tool_gospider -gt 0 ]] && echo "| gospider | $tool_gospider |" >> "$report_md"
+    echo "| **Combined (deduped)** | **$urls_total** |" >> "$report_md"
+    echo >> "$report_md"
+
+    if [[ $tool_jsluice -gt 0 || $tool_linkfinder -gt 0 ]]; then
+        echo "### JS Analysis" >> "$report_md"
+        echo "| Tool | Results |" >> "$report_md"
+        echo "|------|---------|" >> "$report_md"
+        [[ $tool_jsluice -gt 0 ]] && echo "| jsluice | $tool_jsluice |" >> "$report_md"
+        [[ $tool_linkfinder -gt 0 ]] && echo "| LinkFinder | $tool_linkfinder |" >> "$report_md"
+        echo "| **Combined (deduped)** | **$endpoints_found** |" >> "$report_md"
+        echo >> "$report_md"
+    fi
+
     # Port scan results
     if has_content "$outdir/ports/httpx_ports.txt"; then
         echo >> "$report_md"
@@ -217,6 +272,26 @@ EOF
     "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
     "has_sensitive_paths": $([ "$sensitive_paths" -gt 0 ] && echo "true" || echo "false"),
     "has_sensitive_urls": $([ "$sensitive_urls" -gt 0 ] && echo "true" || echo "false")
+  },
+  "tool_effectiveness": {
+    "subdomains": {
+      "subfinder": $tool_subfinder,
+      "assetfinder": $tool_assetfinder,
+      "findomain": $tool_findomain,
+      "amass": $tool_amass,
+      "crtsh": $tool_crtsh
+    },
+    "urls": {
+      "waybackurls": $tool_waybackurls,
+      "waymore": $tool_waymore,
+      "gau": $tool_gau,
+      "katana": $tool_katana,
+      "gospider": $tool_gospider
+    },
+    "js_analysis": {
+      "jsluice": $tool_jsluice,
+      "linkfinder": $tool_linkfinder
+    }
   }
 }
 EOF
