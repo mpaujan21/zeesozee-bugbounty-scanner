@@ -38,9 +38,9 @@ urls_step() {
             touch "$outdir/urls/gau.txt"
         fi
 
-        wait
+        wait_jobs "passive-urls"
     )
-    
+
     # Active crawling (parallel, with pre-deduplication)
     (
         if is_tool_enabled "ENABLE_KATANA"; then
@@ -66,9 +66,9 @@ urls_step() {
             touch "$outdir/urls/gospider.txt"
         fi
 
-        wait
+        wait_jobs "active-urls"
     )
-    
+
     # Combine all URLs (optimized: direct sort without cat)
     sort -u "$outdir"/urls/waybackurls.txt \
         "$outdir"/urls/waymore.txt \
@@ -79,7 +79,9 @@ urls_step() {
     
     # Scope filtering (keep only target domain)
     if [[ -n "$domain" ]]; then
-        grep -E "https?://[^/]*\.?${domain}(/|$|:)" "$outdir/urls/all_urls.txt" \
+        local escaped_domain
+        escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
+        grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" "$outdir/urls/all_urls.txt" \
         | sort -u > "$outdir/urls.txt"
         info "Filtered to $(wc -l < "$outdir/urls.txt") in-scope URLs"
     else

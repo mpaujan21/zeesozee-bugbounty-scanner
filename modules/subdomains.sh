@@ -69,16 +69,19 @@ subdomains_step() {
             touch "$outdir/crtsh.txt"
         fi
 
-        wait
+        wait_jobs "subdomains"
     )
 
     # Combine all results (optimized: direct sort without cat)
-    grep -hE "\.${domain}$" \
+    local escaped_domain
+    escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
+    grep -hE "(^|\.| )${escaped_domain}$" \
         "$outdir"/subfinder.txt \
         "$outdir"/assetfinder.txt \
         "$outdir"/findomain.txt \
         "$outdir"/amass.txt \
         "$outdir"/crtsh.txt 2>/dev/null \
+        | sed 's/^\[.*\] //' \
         | sort -fu > "$outdir/subdomains_raw.txt"
 
     # Wildcard Detection (informational)
