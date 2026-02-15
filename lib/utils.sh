@@ -27,6 +27,27 @@ run() {
   fi
 }
 
+# wait_jobs - wait for all background jobs and report failures
+# Usage: start jobs with &, then call wait_jobs "step_name"
+# Returns 0 even if some tools fail (best-effort), but logs failures
+wait_jobs() {
+  local step_name="${1:-parallel}"
+  local failed=0
+  local pids
+  pids=$(jobs -p 2>/dev/null) || true
+
+  for pid in $pids; do
+    if ! wait "$pid" 2>/dev/null; then
+      failed=$((failed + 1))
+    fi
+  done
+
+  if [[ $failed -gt 0 ]]; then
+    warn "$step_name: $failed tool(s) exited with errors"
+  fi
+  return 0
+}
+
 # Resume capability functions
 STATE_FILE=""
 
@@ -43,7 +64,13 @@ is_completed() {
 
 mark_completed() {
   local step="$1"
-  echo "$step" >> "$STATE_FILE"
+  # Atomic append: write to temp then move to avoid corruption
+  local tmp="${STATE_FILE}.tmp.$$"
+  if [[ -f "$STATE_FILE" ]]; then
+    cp "$STATE_FILE" "$tmp"
+  fi
+  echo "$step" >> "$tmp"
+  mv "$tmp" "$STATE_FILE"
   ok "Step '$step' completed"
 }
 
@@ -58,6 +85,28 @@ resume_info() {
     completed_count=$(wc -l < "$STATE_FILE")
     info "Found previous scan state with $completed_count completed steps"
     info "Resuming from last checkpoint..."
+
+    # Validate key output files for completed steps
+    local outdir
+    outdir=$(dirname "$STATE_FILE")
+    local warnings=0
+
+    if is_completed "subdomains" && [[ ! -s "$outdir/subdomains.txt" ]]; then
+      warn "Resume: subdomains marked complete but subdomains.txt is empty/missing"
+      warnings=$((warnings + 1))
+    fi
+    if is_completed "probe" && [[ ! -s "$outdir/httpx.json" ]]; then
+      warn "Resume: probe marked complete but httpx.json is empty/missing"
+      warnings=$((warnings + 1))
+    fi
+    if is_completed "urls" && [[ ! -s "$outdir/urls.txt" ]]; then
+      warn "Resume: urls marked complete but urls.txt is empty/missing"
+      warnings=$((warnings + 1))
+    fi
+
+    if [[ $warnings -gt 0 ]]; then
+      warn "Found $warnings output file issues. Consider using --force-restart"
+    fi
     return 0
   fi
   return 1

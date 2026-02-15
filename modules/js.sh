@@ -50,9 +50,9 @@ js_step() {
         ) &
 
         # Limit parallel jobs
-        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n
+        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n 2>/dev/null
     done < "$outdir/js_limited.txt"
-    wait
+    wait_jobs "js-download"
 
     # Count downloaded files
     local downloaded
@@ -84,11 +84,25 @@ js_step() {
         ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) URLs"
     fi
 
-    # Extract endpoints with LinkFinder (fallback/additional)
+    # Extract endpoints with LinkFinder (parallel)
     info "Running LinkFinder..."
+    local lf_tmpdir="$outdir/js/analysis/.lf_tmp"
+    ensure_dir "$lf_tmpdir"
+
     find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | while read -r jsfile; do
-        python3 "${TOOLS:-$HOME/tools}/LinkFinder/linkfinder.py" -i "$jsfile" -o cli 2>/dev/null
-    done | sort -fu > "$outdir/js/analysis/linkfinder.txt"
+        (
+            local fname
+            fname=$(basename "$jsfile")
+            python3 "${TOOLS:-$HOME/tools}/LinkFinder/linkfinder.py" -i "$jsfile" -o cli \
+                > "$lf_tmpdir/$fname.txt" 2>/dev/null
+        ) &
+        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n 2>/dev/null
+    done
+    wait_jobs "linkfinder"
+
+    # Combine all LinkFinder results
+    cat "$lf_tmpdir"/*.txt 2>/dev/null | sort -fu > "$outdir/js/analysis/linkfinder.txt"
+    rm -rf "$lf_tmpdir"
     ok "LinkFinder found $(wc -l < "$outdir/js/analysis/linkfinder.txt" 2>/dev/null || echo 0) endpoints"
 
     # Scan for secrets with trufflehog

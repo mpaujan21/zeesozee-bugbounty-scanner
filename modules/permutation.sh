@@ -58,7 +58,7 @@ permutation_step() {
             touch "$outdir/permutations/gotator.txt"
         fi
 
-        wait
+        wait_jobs "permutations"
     )
 
     # Combine all permutations (optimized: direct sort without cat)

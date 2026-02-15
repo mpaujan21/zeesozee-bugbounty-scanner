@@ -26,7 +26,7 @@ categorize_step() {
         gf cors < "$outdir/uro.txt" > "$outdir/categorized/cors.txt" &
         gf aws-keys < "$outdir/uro.txt" > "$outdir/categorized/aws.txt" &
         gf php-errors < "$outdir/uro.txt" > "$outdir/categorized/php_errors.txt" &
-        wait
+        wait_jobs "gf-patterns"
     ) 2>/dev/null
     
     # Report counts

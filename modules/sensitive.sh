@@ -145,9 +145,9 @@ sensitive_step() {
                     -of json 2>/dev/null &
 
             # Limit parallel jobs (configurable)
-            [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_BACKUPS ]] && wait -n
+            [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_BACKUPS ]] && wait -n 2>/dev/null
         done < "$outdir/clean_httpx.txt"
-        wait
+        wait_jobs "backup-discovery"
 
         # Combine all backup results
         # Note: Multiple JSON files need to be validated individually
