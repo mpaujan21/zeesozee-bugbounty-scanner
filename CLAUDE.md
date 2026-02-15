@@ -51,11 +51,15 @@ modules/
 
 ### Key Patterns
 
-- Modules run tools in parallel using subshells with `&` and `wait`
+- Modules run tools in parallel using subshells with `&` and `wait_jobs` (reports failures)
+- Domain values in grep/regex are escaped via `sed` to prevent regex injection (e.g. dots)
 - Most tools output JSON for structured data (`httpx.json`, `ffuf_results.json`)
 - Human-readable formats are derived from JSON using `jq`
 - `$HEADER` variable is added to HTTP requests (defined in `lib/utils.sh`)
 - Threads/concurrency controlled by `$THREADS` variable (default 50, override with `--threads`)
+- All output is logged to `$OUTDIR/scan.log` with timestamps via `_log()` in `lib/colors.sh`
+- Resume state uses atomic writes (temp+mv) and validates output files on resume
+- Report includes per-tool effectiveness metrics (how many results each tool found)
 
 ## Environment Variables
 
