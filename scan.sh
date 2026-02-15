@@ -116,7 +116,11 @@ check_required_tools || exit 1
 ensure_dir "$OUTDIR"
 pushd "$OUTDIR" >/dev/null
 
-# Initialize resume capability
+SCAN_START_TIME=$(date +%s)
+
+# Initialize logging and resume capability
+init_log "$(pwd)"
+info "Scan target: $DOMAIN | Threads: $THREADS | Output: $OUTDIR"
 init_state "$(pwd)"
 
 # Handle force restart
@@ -180,7 +184,7 @@ if [[ "$YES_JS" == "y" ]]; then
 fi
 
 if ! is_completed "report"; then
-    report_step "$(pwd)" "$DOMAIN" && mark_completed "report"
+    report_step "$(pwd)" "$DOMAIN" "$SCAN_START_TIME" && mark_completed "report"
 else
     info "Skipping report generation (already completed)"
 fi
