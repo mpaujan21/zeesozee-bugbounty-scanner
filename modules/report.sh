@@ -31,7 +31,7 @@ report_step() {
 
     # Gather all stats
     local subdomains_total subdomains_live urls_total urls_optimized
-    local js_files ports_open sensitive_urls sensitive_paths
+    local js_files ports_open
     local secrets_found endpoints_found permutation_new
 
     subdomains_total=$(count_lines "$outdir/subdomains.txt")
@@ -40,8 +40,6 @@ report_step() {
     urls_optimized=$(count_lines "$outdir/uro.txt")
     js_files=$(count_lines "$outdir/js.txt")
     ports_open=$(count_lines "$outdir/ports/naabu_output.txt")
-    sensitive_urls=$(count_lines "$outdir/sensitive/urls_sensitive_live.txt")
-    sensitive_paths=$(count_lines "$outdir/sensitive/paths/found.txt")
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
@@ -51,11 +49,11 @@ report_step() {
     local tool_waybackurls tool_waymore tool_gau tool_katana tool_gospider
     local tool_jsluice tool_linkfinder
 
-    tool_subfinder=$(count_lines "$outdir/subfinder.txt")
-    tool_assetfinder=$(count_lines "$outdir/assetfinder.txt")
-    tool_findomain=$(count_lines "$outdir/findomain.txt")
-    tool_amass=$(count_lines "$outdir/amass.txt")
-    tool_crtsh=$(count_lines "$outdir/crtsh.txt")
+    tool_subfinder=$(count_lines "$outdir/subdomains/subfinder.txt")
+    tool_assetfinder=$(count_lines "$outdir/subdomains/assetfinder.txt")
+    tool_findomain=$(count_lines "$outdir/subdomains/findomain.txt")
+    tool_amass=$(count_lines "$outdir/subdomains/amass.txt")
+    tool_crtsh=$(count_lines "$outdir/subdomains/crtsh.txt")
     tool_waybackurls=$(count_lines "$outdir/urls/waybackurls.txt")
     tool_waymore=$(count_lines "$outdir/urls/waymore.txt")
     tool_gau=$(count_lines "$outdir/urls/gau.txt")
@@ -89,8 +87,6 @@ report_step() {
 | URLs Discovered | $urls_total |
 | URLs (optimized) | $urls_optimized |
 | JavaScript Files | $js_files |
-| Sensitive URLs (live) | $sensitive_urls |
-| Sensitive Paths Found | $sensitive_paths |
 | JS Endpoints | $endpoints_found |
 | Secrets Found | $secrets_found |
 
@@ -106,26 +102,6 @@ EOF
         echo '```' >> "$report_md"
         head -20 "$outdir/js/analysis/trufflehog.txt" >> "$report_md" 2>/dev/null
         [[ $secrets_found -gt 20 ]] && echo "... and $((secrets_found - 20)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # Sensitive paths section
-    if [[ $sensitive_paths -gt 0 ]]; then
-        echo "### Exposed Sensitive Paths" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/sensitive/paths/found.txt" >> "$report_md" 2>/dev/null
-        [[ $sensitive_paths -gt 20 ]] && echo "... and $((sensitive_paths - 20)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # Sensitive URLs section
-    if [[ $sensitive_urls -gt 0 ]]; then
-        echo "### Sensitive URLs (Live)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/sensitive/urls_sensitive_live.txt" >> "$report_md" 2>/dev/null
-        [[ $sensitive_urls -gt 20 ]] && echo "... and $((sensitive_urls - 20)) more" >> "$report_md"
         echo '```' >> "$report_md"
         echo >> "$report_md"
     fi
@@ -236,7 +212,6 @@ EOF
 | `uro.txt` | Optimized/deduped URLs |
 | `js.txt` | JavaScript file URLs |
 | `categorized/` | URLs by vulnerability pattern |
-| `sensitive/` | Sensitive files and paths |
 | `ports/` | Port scan results |
 | `js/analysis/` | JS analysis results |
 | `permutations/` | Subdomain permutation results |
@@ -263,15 +238,11 @@ EOF
     "urls_total": $urls_total,
     "urls_optimized": $urls_optimized,
     "js_files": $js_files,
-    "sensitive_urls": $sensitive_urls,
-    "sensitive_paths": $sensitive_paths,
     "endpoints_found": $endpoints_found,
     "secrets_found": $secrets_found
   },
   "high_priority": {
-    "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
-    "has_sensitive_paths": $([ "$sensitive_paths" -gt 0 ] && echo "true" || echo "false"),
-    "has_sensitive_urls": $([ "$sensitive_urls" -gt 0 ] && echo "true" || echo "false")
+    "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false")
   },
   "tool_effectiveness": {
     "subdomains": {
@@ -310,8 +281,6 @@ EOF
     echo "  JS Files: $js_files"
     echo "  Endpoints: $endpoints_found"
     [[ $secrets_found -gt 0 ]] && echo "  ⚠ SECRETS FOUND: $secrets_found"
-    [[ $sensitive_paths -gt 0 ]] && echo "  ⚠ SENSITIVE PATHS: $sensitive_paths"
-    [[ $sensitive_urls -gt 0 ]] && echo "  ⚠ SENSITIVE URLs: $sensitive_urls"
     echo "════════════════════════════════════════════════════════════"
     echo "  Report: $report_md"
     echo "════════════════════════════════════════════════════════════"

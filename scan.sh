@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing ports permutation urls categorize sensitive js report; do
+for mod in subdomains probing ports permutation urls categorize js report; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -167,12 +167,6 @@ if ! is_completed "categorize"; then
     categorize_step "$(pwd)" && mark_completed "categorize"
 else
     info "Skipping categorization (already completed)"
-fi
-
-if ! is_completed "sensitive"; then
-    sensitive_step "$(pwd)" "$THREADS" && mark_completed "sensitive"
-else
-    info "Skipping sensitive file discovery (already completed)"
 fi
 
 if [[ "$YES_JS" == "y" ]]; then

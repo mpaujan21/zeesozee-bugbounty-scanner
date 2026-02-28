@@ -23,16 +23,12 @@ check_required_tools() {
     # Categorization tools
     local categorize_tools=(gf unfurl)
 
-    # Sensitive file discovery tools
-    local sensitive_tools=(ffuf backupfinder)
-
     # JS analysis tools (optional - will warn but not fail)
     local optional_js_tools=(jsluice prettier trufflehog python3)
 
     # Combine all required tools
     local all_required=("${core_tools[@]}" "${subdomain_tools[@]}" "${dns_tools[@]}"
-                       "${probing_tools[@]}" "${url_tools[@]}" "${categorize_tools[@]}"
-                       "${sensitive_tools[@]}")
+                       "${probing_tools[@]}" "${url_tools[@]}" "${categorize_tools[@]}")
 
     # Check required tools
     for tool in "${all_required[@]}"; do

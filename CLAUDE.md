@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, port scanning, URL discovery, sensitive file hunting, and JavaScript analysis.
+Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, port scanning, URL discovery, and JavaScript analysis.
 
 ## Running the Scanner
 
@@ -32,7 +32,6 @@ modules/
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
   categorize.sh      # GF pattern matching + unfurl extraction
-  sensitive.sh       # Sensitive file/path discovery with ffuf and backupfinder
   js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder)
   report.sh          # Markdown + JSON report generation
 ```
@@ -45,9 +44,8 @@ modules/
 4. **permutation_step**: Generate and resolve permutations, append new discoveries
 5. **urls_step**: Passive + active URL collection, uro optimization
 6. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
-7. **sensitive_step**: Sensitive file URLs, common paths via ffuf, backup finder
-8. **js_step** (optional): Download JS, extract endpoints/secrets
-9. **report_step**: Generate `report.md` and `report.json`
+7. **js_step** (optional): Download JS, extract endpoints/secrets
+8. **report_step**: Generate `report.md` and `report.json`
 
 ### Key Patterns
 
@@ -75,5 +73,4 @@ DNS: dnsgen, dnsx, alterx, gotator
 Probing: httpx, naabu
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
-Sensitive: ffuf, backupfinder
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder
