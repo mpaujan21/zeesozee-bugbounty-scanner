@@ -23,7 +23,7 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_WAYMORE"; then
             info "Running waymore"
-            waymore -i "$domain" -mode U -oU "$outdir/urls/waymore.txt" 2>/dev/null &
+            waymore -i "$domain" -n -mode U -oU "$outdir/urls/waymore.txt" >/dev/null 2>&1 &
         else
             info "Skipping waymore (disabled in config)"
             touch "$outdir/urls/waymore.txt"

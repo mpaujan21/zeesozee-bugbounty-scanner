@@ -3,7 +3,17 @@
     "allow": [
       "Bash(git -C /home/pojan/hack/scripts/zee-scanner log --oneline -10)",
       "Bash(wc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(bash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: escape domain regex in scope filtering to prevent false matches\n\nDots in domain names were not escaped before use in grep regex,\ncausing example.com to match exampleXcom, evil-example.com, etc.\nAlso strips [toolname] prefixes from subdomain dedup in subdomains.sh.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(for tool in curl jq subfinder assetfinder findomain amass dig dnsx dnsgen alterx gotator httpx naabu waybackurls waymore gau katana gospider uro gf unfurl ffuf backupfinder)",
+      "Bash(do command -v \"$tool\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(waymore:*)"
     ]
   }
 }

@@ -107,9 +107,8 @@ resume_info() {
     if [[ $warnings -gt 0 ]]; then
       warn "Found $warnings output file issues. Consider using --force-restart"
     fi
-    return 0
   fi
-  return 1
+  return 0
 }
 
 # Configuration loading functions

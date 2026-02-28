@@ -23,39 +23,40 @@ subdomains_step() {
     local wildcard_ip
 
     ok "Starting Subdomain Enumeration..."
+    ensure_dir "$outdir/subdomains"
 
     # Passive Enumeration (parallel, with pre-deduplication)
     (
         if is_tool_enabled "ENABLE_SUBFINDER"; then
             info "Running subfinder"
-            subfinder -silent -d "$domain" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' | sort -u > "$outdir/subfinder.txt" &
+            subfinder -silent -d "$domain" 2>&1 | grep -v "^$" | sed 's/^/[subfinder] /' | sort -u > "$outdir/subdomains/subfinder.txt" &
         else
             info "Skipping subfinder (disabled in config)"
-            touch "$outdir/subfinder.txt"
+            touch "$outdir/subdomains/subfinder.txt"
         fi
 
         if is_tool_enabled "ENABLE_ASSETFINDER"; then
             info "Running assetfinder"
-            assetfinder --subs-only "$domain" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' | sort -u > "$outdir/assetfinder.txt" &
+            assetfinder --subs-only "$domain" 2>&1 | grep -v "^$" | sed 's/^/[assetfinder] /' | sort -u > "$outdir/subdomains/assetfinder.txt" &
         else
             info "Skipping assetfinder (disabled in config)"
-            touch "$outdir/assetfinder.txt"
+            touch "$outdir/subdomains/assetfinder.txt"
         fi
 
         if is_tool_enabled "ENABLE_FINDOMAIN"; then
             info "Running findomain"
-            findomain -t "$domain" -q 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' | sort -u > "$outdir/findomain.txt" &
+            findomain -t "$domain" -q 2>&1 | grep -v "^$" | sed 's/^/[findomain] /' | sort -u > "$outdir/subdomains/findomain.txt" &
         else
             info "Skipping findomain (disabled in config)"
-            touch "$outdir/findomain.txt"
+            touch "$outdir/subdomains/findomain.txt"
         fi
 
         if is_tool_enabled "ENABLE_AMASS"; then
             info "Running amass (passive)"
-            amass enum -passive -d "$domain" 2>/dev/null | sort -u > "$outdir/amass.txt" &
+            amass enum -passive -d "$domain" 2>/dev/null | sort -u > "$outdir/subdomains/amass.txt" &
         else
             info "Skipping amass (disabled in config)"
-            touch "$outdir/amass.txt"
+            touch "$outdir/subdomains/amass.txt"
         fi
 
         if is_tool_enabled "ENABLE_CRTSH"; then
@@ -63,10 +64,10 @@ subdomains_step() {
             curl -s "https://crt.sh/?q=%25.${domain}&output=json" 2>/dev/null \
                 | jq -r '.[].name_value' 2>/dev/null \
                 | sed 's/\*\.//g' \
-                | sort -u > "$outdir/crtsh.txt" &
+                | sort -u > "$outdir/subdomains/crtsh.txt" &
         else
             info "Skipping crt.sh (disabled in config)"
-            touch "$outdir/crtsh.txt"
+            touch "$outdir/subdomains/crtsh.txt"
         fi
 
         wait_jobs "subdomains"
@@ -76,13 +77,13 @@ subdomains_step() {
     local escaped_domain
     escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
     grep -hE "(^|\.| )${escaped_domain}$" \
-        "$outdir"/subfinder.txt \
-        "$outdir"/assetfinder.txt \
-        "$outdir"/findomain.txt \
-        "$outdir"/amass.txt \
-        "$outdir"/crtsh.txt 2>/dev/null \
+        "$outdir"/subdomains/subfinder.txt \
+        "$outdir"/subdomains/assetfinder.txt \
+        "$outdir"/subdomains/findomain.txt \
+        "$outdir"/subdomains/amass.txt \
+        "$outdir"/subdomains/crtsh.txt 2>/dev/null \
         | sed 's/^\[.*\] //' \
-        | sort -fu > "$outdir/subdomains_raw.txt"
+        | sort -fu > "$outdir/subdomains/subdomains_raw.txt"
 
     # Wildcard Detection (informational)
     info "Checking for wildcard DNS..."
@@ -90,12 +91,12 @@ subdomains_step() {
 
     if [[ -n "$wildcard_ip" ]]; then
         warn "Wildcard DNS detected: *.${domain} -> ${wildcard_ip}"
-        echo "$wildcard_ip" > "$outdir/wildcard_ip.txt"
+        echo "$wildcard_ip" > "$outdir/subdomains/wildcard_ip.txt"
     else
         ok "No wildcard DNS detected"
     fi
 
     # Finalize subdomain list
-    mv "$outdir/subdomains_raw.txt" "$outdir/subdomains.txt"
+    mv "$outdir/subdomains/subdomains_raw.txt" "$outdir/subdomains.txt"
     ok "Found $(wc -l < "$outdir/subdomains.txt" 2>/dev/null || echo 0) unique subdomains"
 }
