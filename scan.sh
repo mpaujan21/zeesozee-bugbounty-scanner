@@ -137,19 +137,37 @@ fi
 [[ "$YES_PORTS" == "ask" ]] && YES_PORTS="$(prompt_yn 'Run Port Scanning?')"
 [[ "$YES_SCREENSHOTS" == "ask" ]] && YES_SCREENSHOTS="$(prompt_yn 'Capture Screenshots?')"
 
+# Calculate total steps based on enabled features
+TOTAL_STEPS=7  # subdomains, probe, response_analysis, urls, categorize, report, delta
+is_tool_enabled ENABLE_TAKEOVER && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+[[ "$YES_PORTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+[[ "$YES_SCREENSHOTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+[[ "$YES_JS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+TOTAL_STEPS=$((TOTAL_STEPS + 1))  # export
+CURRENT_STEP=0
+
+next_step() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    echo -e "${BOLD}${BLUE}[${CURRENT_STEP}/${TOTAL_STEPS}]${RESET} ${BOLD}$1${RESET}"
+    _log "STEP" "[$CURRENT_STEP/$TOTAL_STEPS] $1"
+}
+
 # pipeline with resume capability
+next_step "Subdomain Enumeration"
 if ! is_completed "subdomains"; then
     subdomains_step "$DOMAIN" "$(pwd)" && mark_completed "subdomains"
 else
     info "Skipping subdomains (already completed)"
 fi
 
+next_step "HTTP Probing"
 if ! is_completed "probe"; then
     probe_step "$(pwd)" "$THREADS" && mark_completed "probe"
 else
     info "Skipping probing (already completed)"
 fi
 
+next_step "Response Analysis"
 if ! is_completed "response_analysis"; then
     response_analysis_step "$(pwd)" && mark_completed "response_analysis"
 else
@@ -157,6 +175,7 @@ else
 fi
 
 if is_tool_enabled ENABLE_TAKEOVER; then
+    next_step "Subdomain Takeover Detection"
     if ! is_completed "takeover"; then
         takeover_step "$(pwd)" "$DOMAIN" "$THREADS" && mark_completed "takeover"
     else
@@ -181,6 +200,9 @@ elif [[ "$YES_SCREENSHOTS" == "y" ]]; then
 fi
 
 if [[ "$_run_ports" == "true" || "$_run_screenshots" == "true" ]]; then
+    # Both get a step number even though they run in parallel
+    [[ "$YES_PORTS" == "y" ]] && next_step "Port Scanning"
+    [[ "$YES_SCREENSHOTS" == "y" ]] && next_step "Screenshot Capture"
     if [[ "$_run_ports" == "true" ]]; then
         ( ports_step "$(pwd)" "$THREADS" && mark_completed "ports" ) &
     fi
@@ -188,16 +210,22 @@ if [[ "$_run_ports" == "true" || "$_run_screenshots" == "true" ]]; then
         ( screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots" ) &
     fi
     wait_jobs "ports+screenshots"
+else
+    # Still consume step numbers for skipped steps
+    [[ "$YES_PORTS" == "y" ]] && next_step "Port Scanning"
+    [[ "$YES_SCREENSHOTS" == "y" ]] && next_step "Screenshot Capture"
 fi
 
 # permutation_step "$(pwd)"
 
+next_step "URL Discovery"
 if ! is_completed "urls"; then
     urls_step "$(pwd)" "$THREADS" "$DOMAIN" && mark_completed "urls"
 else
     info "Skipping URL discovery (already completed)"
 fi
 
+next_step "URL Categorization"
 if ! is_completed "categorize"; then
     categorize_step "$(pwd)" && mark_completed "categorize"
 else
@@ -205,6 +233,7 @@ else
 fi
 
 if [[ "$YES_JS" == "y" ]]; then
+    next_step "JavaScript Analysis"
     if ! is_completed "js"; then
         js_step "$(pwd)" && mark_completed "js"
     else
@@ -212,18 +241,21 @@ if [[ "$YES_JS" == "y" ]]; then
     fi
 fi
 
+next_step "Report Generation"
 if ! is_completed "report"; then
     report_step "$(pwd)" "$DOMAIN" "$SCAN_START_TIME" && mark_completed "report"
 else
     info "Skipping report generation (already completed)"
 fi
 
+next_step "Delta Analysis"
 if ! is_completed "delta"; then
     delta_step "$(pwd)" && mark_completed "delta"
 else
     info "Skipping delta report (already completed)"
 fi
 
+next_step "Export"
 if ! is_completed "export"; then
     python3 "$HACK/scripts/export_scan_supabase.py" "$FOLDERNAME" --subs "$OUTDIR/httpx.txt" && mark_completed "export"
 else
