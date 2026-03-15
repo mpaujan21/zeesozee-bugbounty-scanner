@@ -22,11 +22,11 @@ response_analysis_step() {
         > "$analysis_dir/403_bypass_candidates.txt" 2>/dev/null &
 
     # 2. CORS Wildcard misconfig
+    # httpx normalizes header keys to lowercase with underscores
     jq -r '
         select(.header != null) |
-        select(.header | to_entries[] |
-            select(.key | ascii_downcase == "access-control-allow-origin") |
-            .value | test("\\*"))
+        select(.header.access_control_allow_origin != null) |
+        select(.header.access_control_allow_origin | test("\\*"))
         | .url' "$httpx_json" \
         > "$analysis_dir/cors_wildcard.txt" 2>/dev/null &
 
@@ -70,14 +70,15 @@ _check_missing_headers() {
     local httpx_json="$1" analysis_dir="$2"
     local output="$analysis_dir/missing_security_headers.txt"
 
+    # httpx normalizes header keys to lowercase with underscores
     jq -r '
         select(.header != null) |
         . as $entry |
-        ($entry.header | keys | map(ascii_downcase)) as $hdr_keys |
+        ($entry.header | keys) as $hdr_keys |
         [
-            (if ($hdr_keys | index("strict-transport-security")) == null then "HSTS" else empty end),
-            (if ($hdr_keys | index("x-content-type-options")) == null then "X-Content-Type-Options" else empty end),
-            (if ($hdr_keys | index("content-security-policy")) == null then "CSP" else empty end)
+            (if ($hdr_keys | index("strict_transport_security")) == null then "HSTS" else empty end),
+            (if ($hdr_keys | index("x_content_type_options")) == null then "X-Content-Type-Options" else empty end),
+            (if ($hdr_keys | index("content_security_policy")) == null then "CSP" else empty end)
         ] | select(length > 0) |
         "\($entry.url) missing: \(join(", "))"
     ' "$httpx_json" > "$output" 2>/dev/null || true

@@ -74,7 +74,14 @@ mark_completed() {
     echo "$step" >> "$tmp"
     mv "$tmp" "$STATE_FILE"
   ) 200>"${STATE_FILE}.lock"
-  ok "Step '$step' completed"
+
+  # Show elapsed time if STEP_START_TIME is set (from next_step in scan.sh)
+  if [[ "${STEP_START_TIME:-0}" -gt 0 ]] && declare -f _format_duration >/dev/null 2>&1; then
+    local elapsed=$(( $(date +%s) - STEP_START_TIME ))
+    ok "Step '$step' completed ($(_format_duration $elapsed))"
+  else
+    ok "Step '$step' completed"
+  fi
 }
 
 clear_state() {

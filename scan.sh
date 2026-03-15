@@ -145,11 +145,24 @@ is_tool_enabled ENABLE_TAKEOVER && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_JS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 TOTAL_STEPS=$((TOTAL_STEPS + 1))  # export
 CURRENT_STEP=0
+STEP_START_TIME=0
 
 next_step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
+    STEP_START_TIME=$(date +%s)
     echo -e "${BOLD}${BLUE}[${CURRENT_STEP}/${TOTAL_STEPS}]${RESET} ${BOLD}$1${RESET}"
     _log "STEP" "[$CURRENT_STEP/$TOTAL_STEPS] $1"
+}
+
+_format_duration() {
+    local secs="$1"
+    if [[ $secs -ge 3600 ]]; then
+        printf '%dh %dm %ds' $((secs/3600)) $((secs%3600/60)) $((secs%60))
+    elif [[ $secs -ge 60 ]]; then
+        printf '%dm %ds' $((secs/60)) $((secs%60))
+    else
+        printf '%ds' "$secs"
+    fi
 }
 
 # pipeline with resume capability
