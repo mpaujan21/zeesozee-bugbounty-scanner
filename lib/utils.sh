@@ -174,6 +174,10 @@ set_default_config() {
   export ENABLE_KATANA="${ENABLE_KATANA:-true}"
   export ENABLE_GOSPIDER="${ENABLE_GOSPIDER:-true}"
 
+  # Feature toggles
+  export ENABLE_TAKEOVER="${ENABLE_TAKEOVER:-true}"
+  export ENABLE_SCREENSHOTS="${ENABLE_SCREENSHOTS:-true}"
+
   # Performance settings
   export MAX_JS_FILES="${MAX_JS_FILES:-500}"
   export MAX_PARALLEL_JS="${MAX_PARALLEL_JS:-10}"

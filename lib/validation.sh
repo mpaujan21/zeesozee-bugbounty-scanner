@@ -26,6 +26,9 @@ check_required_tools() {
     # JS analysis tools (optional - will warn but not fail)
     local optional_js_tools=(jsluice prettier trufflehog python3)
 
+    # Screenshot tools (optional)
+    local optional_screenshot_tools=(gowitness)
+
     # Combine all required tools
     local all_required=("${core_tools[@]}" "${subdomain_tools[@]}" "${dns_tools[@]}"
                        "${probing_tools[@]}" "${url_tools[@]}" "${categorize_tools[@]}")
@@ -58,6 +61,21 @@ check_required_tools() {
     if [[ ${#missing_optional[@]} -gt 0 ]]; then
         warn "Optional tools missing (JS analysis may be limited):"
         for tool in "${missing_optional[@]}"; do
+            warn "  - $tool"
+        done
+    fi
+
+    # Check optional screenshot tools (warn only)
+    local missing_screenshot=()
+    for tool in "${optional_screenshot_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_screenshot+=("$tool")
+        fi
+    done
+
+    if [[ ${#missing_screenshot[@]} -gt 0 ]]; then
+        warn "Optional tools missing (screenshots disabled):"
+        for tool in "${missing_screenshot[@]}"; do
             warn "  - $tool"
         done
     fi

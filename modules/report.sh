@@ -34,6 +34,10 @@ report_step() {
     local js_files ports_open
     local secrets_found endpoints_found permutation_new
 
+    local takeover_count screenshots_count
+    takeover_count=$(grep -c '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" 2>/dev/null || echo 0)
+    screenshots_count=$(find "$outdir/screenshots" -name "*.png" 2>/dev/null | wc -l || echo 0)
+
     subdomains_total=$(count_lines "$outdir/subdomains.txt")
     subdomains_live=$(count_lines "$outdir/clean_httpx.txt")
     urls_total=$(count_lines "$outdir/urls.txt")
@@ -89,12 +93,23 @@ report_step() {
 | JavaScript Files | $js_files |
 | JS Endpoints | $endpoints_found |
 | Secrets Found | $secrets_found |
+| Potential Takeovers | $takeover_count |
+| Screenshots | $screenshots_count |
 
 ---
 
 ## High Priority Findings
 
 EOF
+
+    # Takeover section
+    if [[ $takeover_count -gt 0 ]]; then
+        echo "### Subdomain Takeovers (CRITICAL)" >> "$report_md"
+        echo '```' >> "$report_md"
+        grep '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" >> "$report_md" 2>/dev/null
+        echo '```' >> "$report_md"
+        echo >> "$report_md"
+    fi
 
     # Secrets section
     if [[ $secrets_found -gt 0 ]]; then
@@ -215,6 +230,9 @@ EOF
 | `ports/` | Port scan results |
 | `js/analysis/` | JS analysis results |
 | `permutations/` | Subdomain permutation results |
+| `takeover/` | Subdomain takeover detection results |
+| `screenshots/` | Screenshot captures (gowitness) |
+| `delta.md` | Changes since last scan |
 
 ---
 
@@ -239,10 +257,13 @@ EOF
     "urls_optimized": $urls_optimized,
     "js_files": $js_files,
     "endpoints_found": $endpoints_found,
-    "secrets_found": $secrets_found
+    "secrets_found": $secrets_found,
+    "takeover_count": $takeover_count,
+    "screenshots_count": $screenshots_count
   },
   "high_priority": {
-    "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false")
+    "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
+    "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false")
   },
   "tool_effectiveness": {
     "subdomains": {
@@ -280,7 +301,9 @@ EOF
     echo "  Ports: $ports_open open"
     echo "  JS Files: $js_files"
     echo "  Endpoints: $endpoints_found"
+    [[ $takeover_count -gt 0 ]] && echo "  ⚠ TAKEOVERS FOUND: $takeover_count"
     [[ $secrets_found -gt 0 ]] && echo "  ⚠ SECRETS FOUND: $secrets_found"
+    [[ $screenshots_count -gt 0 ]] && echo "  Screenshots: $screenshots_count"
     echo "════════════════════════════════════════════════════════════"
     echo "  Report: $report_md"
     echo "════════════════════════════════════════════════════════════"

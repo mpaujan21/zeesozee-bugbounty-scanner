@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing ports permutation urls categorize js report; do
+for mod in subdomains probing ports permutation urls categorize js report takeover screenshots delta; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -22,13 +22,14 @@ ${BOLD}Usage:${RESET}
   $0 <foldername> <domain> [OPTIONS]
 
 ${BOLD}Required Arguments:${RESET}
-  foldername    Output directory name (created in \$HACK/)
+  foldername    Output directory name (created in \$HACK/programs/)
   domain        Target domain to scan
 
 ${BOLD}Options:${RESET}
   --threads N       Number of concurrent threads (default: 50, range: 1-1000)
   --yes-js y|n      Enable JavaScript analysis (interactive if not specified)
   --yes-ports y|n   Enable port scanning (interactive if not specified)
+  --yes-screenshots y|n  Enable screenshot capture with gowitness (interactive if not specified)
   --config FILE     Load configuration from FILE (default: scan.conf or ~/.zee-scanner.conf)
   --force-restart   Clear previous scan state and restart from beginning
   --help            Show this help message
@@ -43,8 +44,8 @@ ${BOLD}Environment Variables:${RESET}
   SCAN_THREADS   Default thread count (default: 50)
 
 ${BOLD}Output:${RESET}
-  Results saved to: \$HACK/<foldername>/
-  Final report: \$HACK/<foldername>/report.md
+  Results saved to: \$HACK/programs/<foldername>/
+  Final report: \$HACK/programs/<foldername>/report.md
 EOF
 }
 
@@ -64,9 +65,9 @@ if [[ $# -lt 2 ]]; then
     exit 1
 fi
 
-HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/$1"; DOMAIN="$2"; shift 2
+HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/programs/$1"; DOMAIN="$2"; shift 2
 THREADS="${SCAN_THREADS:-50}"
-YES_JS="ask"; YES_PORTS="ask"
+YES_JS="ask"; YES_PORTS="ask"; YES_SCREENSHOTS="ask"
 FORCE_RESTART=false
 CONFIG_FILE=""
 
@@ -75,6 +76,7 @@ while [[ $# -gt 0 ]]; do
         --threads) THREADS="${2:-$THREADS}"; shift 2;;
         --yes-js) YES_JS="${2:-ask}"; shift 2;;
         --yes-ports) YES_PORTS="${2:-ask}"; shift 2;;
+        --yes-screenshots) YES_SCREENSHOTS="${2:-ask}"; shift 2;;
         --force-restart) FORCE_RESTART=true; shift;;
         --config) CONFIG_FILE="$2"; shift 2;;
         --help|-h) show_help; exit 0;;
@@ -133,6 +135,7 @@ fi
 # prompts (if not pre-answered)
 [[ "$YES_JS" == "ask" ]] && YES_JS="$(prompt_yn 'Run JS Analysis?')"
 [[ "$YES_PORTS" == "ask" ]] && YES_PORTS="$(prompt_yn 'Run Port Scanning?')"
+[[ "$YES_SCREENSHOTS" == "ask" ]] && YES_SCREENSHOTS="$(prompt_yn 'Capture Screenshots?')"
 
 # pipeline with resume capability
 if ! is_completed "subdomains"; then
@@ -147,11 +150,27 @@ else
     info "Skipping probing (already completed)"
 fi
 
+if is_tool_enabled ENABLE_TAKEOVER; then
+    if ! is_completed "takeover"; then
+        takeover_step "$(pwd)" "$DOMAIN" "$THREADS" && mark_completed "takeover"
+    else
+        info "Skipping takeover detection (already completed)"
+    fi
+fi
+
 if [[ "$YES_PORTS" == "y" ]]; then
     if ! is_completed "ports"; then
         ports_step "$(pwd)" "$THREADS" && mark_completed "ports"
     else
         info "Skipping port scanning (already completed)"
+    fi
+fi
+
+if [[ "$YES_SCREENSHOTS" == "y" ]]; then
+    if ! is_completed "screenshots"; then
+        screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots"
+    else
+        info "Skipping screenshots (already completed)"
     fi
 fi
 
@@ -181,6 +200,12 @@ if ! is_completed "report"; then
     report_step "$(pwd)" "$DOMAIN" "$SCAN_START_TIME" && mark_completed "report"
 else
     info "Skipping report generation (already completed)"
+fi
+
+if ! is_completed "delta"; then
+    delta_step "$(pwd)" && mark_completed "delta"
+else
+    info "Skipping delta report (already completed)"
 fi
 
 if ! is_completed "export"; then

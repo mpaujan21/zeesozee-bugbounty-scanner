@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, port scanning, URL discovery, and JavaScript analysis.
+Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, port scanning, URL discovery, JavaScript analysis, subdomain takeover detection, and screenshot capture.
 
 ## Running the Scanner
 
 ```bash
-./scan.sh <foldername> <domain> [--threads N] [--yes-js y|n] [--yes-ports y|n]
+./scan.sh <foldername> <domain> [--threads N] [--yes-js y|n] [--yes-ports y|n] [--yes-screenshots y|n]
 ```
 
-Example: `./scan.sh acme acme.com --threads 80 --yes-js n --yes-ports y`
+Example: `./scan.sh acme acme.com --threads 80 --yes-js n --yes-ports y --yes-screenshots y`
 
-Output is written to `$HACK/<foldername>` (defaults to `~/HACK/<foldername>`).
+Output is written to `$HACK/programs/<foldername>` (defaults to `~/HACK/programs/<foldername>`).
 
 ## Architecture
 
@@ -33,6 +33,9 @@ modules/
   urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
   categorize.sh      # GF pattern matching + unfurl extraction
   js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder)
+  takeover.sh        # Subdomain takeover detection via dangling CNAME fingerprints
+  screenshots.sh     # Screenshot capture with gowitness
+  delta.sh           # Delta/diff scanning — highlights new findings between scans
   report.sh          # Markdown + JSON report generation
 ```
 
@@ -40,12 +43,15 @@ modules/
 
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
 2. **probe_step**: httpx probing, generates `httpx.json` and `clean_httpx.txt`
-3. **ports_step** (optional): naabu scan on categorized ports, httpx probe results
-4. **permutation_step**: Generate and resolve permutations, append new discoveries
-5. **urls_step**: Passive + active URL collection, uro optimization
-6. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
-7. **js_step** (optional): Download JS, extract endpoints/secrets
-8. **report_step**: Generate `report.md` and `report.json`
+3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
+4. **ports_step** (optional): naabu scan on categorized ports, httpx probe results
+5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
+6. **permutation_step**: Generate and resolve permutations, append new discoveries
+7. **urls_step**: Passive + active URL collection, uro optimization
+8. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
+9. **js_step** (optional): Download JS, extract endpoints/secrets
+10. **report_step**: Generate `report.md` and `report.json`
+11. **delta_step**: Compare against previous scan, generate `delta.md` and `delta.json`
 
 ### Key Patterns
 
@@ -58,6 +64,7 @@ modules/
 - All output is logged to `$OUTDIR/scan.log` with timestamps via `_log()` in `lib/colors.sh`
 - Resume state uses atomic writes (temp+mv) and validates output files on resume
 - Report includes per-tool effectiveness metrics (how many results each tool found)
+- Delta snapshots stored in `$OUTDIR/.snapshots/` with timestamped directories
 
 ## Environment Variables
 
@@ -65,6 +72,11 @@ modules/
 - `SCAN_THREADS`: Default thread count
 - `TOOLS`: Path to supporting utilities like LinkFinder
 - `HEADER`: Custom HTTP header for probing tools
+
+## Configuration Toggles
+
+- `ENABLE_TAKEOVER`: Enable subdomain takeover detection (default: true)
+- `ENABLE_SCREENSHOTS`: Enable screenshot capture (default: true)
 
 ## Required External Tools
 
@@ -74,3 +86,4 @@ Probing: httpx, naabu
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder
+Optional: gowitness (screenshots)
