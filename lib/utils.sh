@@ -64,13 +64,16 @@ is_completed() {
 
 mark_completed() {
   local step="$1"
-  # Atomic append: write to temp then move to avoid corruption
-  local tmp="${STATE_FILE}.tmp.$$"
-  if [[ -f "$STATE_FILE" ]]; then
-    cp "$STATE_FILE" "$tmp"
-  fi
-  echo "$step" >> "$tmp"
-  mv "$tmp" "$STATE_FILE"
+  # Use flock to prevent concurrent writes from parallel subshells
+  (
+    flock -x 200
+    local tmp="${STATE_FILE}.tmp.$$"
+    if [[ -f "$STATE_FILE" ]]; then
+      cp "$STATE_FILE" "$tmp"
+    fi
+    echo "$step" >> "$tmp"
+    mv "$tmp" "$STATE_FILE"
+  ) 200>"${STATE_FILE}.lock"
   ok "Step '$step' completed"
 }
 
@@ -177,6 +180,9 @@ set_default_config() {
   # Feature toggles
   export ENABLE_TAKEOVER="${ENABLE_TAKEOVER:-true}"
   export ENABLE_SCREENSHOTS="${ENABLE_SCREENSHOTS:-true}"
+
+  # Delta/snapshot settings
+  export MAX_SNAPSHOTS="${MAX_SNAPSHOTS:-5}"
 
   # Performance settings
   export MAX_JS_FILES="${MAX_JS_FILES:-500}"

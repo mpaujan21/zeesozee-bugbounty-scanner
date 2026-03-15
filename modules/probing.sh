@@ -15,6 +15,7 @@ probe_step() {
     -silent -nc \
     -location -ip -title -tech-detect -status-code -td \
     -favicon -cdn -web-server -cname -asn \
+    -include-response-header \
     -timeout 10 -retries 2 -rl 150 \
     -H "$HEADER" -threads "$threads" \
     -json -o "$outdir/httpx.json"

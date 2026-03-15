@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing ports permutation urls categorize js report takeover screenshots delta; do
+for mod in subdomains probing response_analysis ports permutation urls categorize js report takeover screenshots delta; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -150,6 +150,12 @@ else
     info "Skipping probing (already completed)"
 fi
 
+if ! is_completed "response_analysis"; then
+    response_analysis_step "$(pwd)" && mark_completed "response_analysis"
+else
+    info "Skipping response analysis (already completed)"
+fi
+
 if is_tool_enabled ENABLE_TAKEOVER; then
     if ! is_completed "takeover"; then
         takeover_step "$(pwd)" "$DOMAIN" "$THREADS" && mark_completed "takeover"
@@ -158,20 +164,30 @@ if is_tool_enabled ENABLE_TAKEOVER; then
     fi
 fi
 
-if [[ "$YES_PORTS" == "y" ]]; then
-    if ! is_completed "ports"; then
-        ports_step "$(pwd)" "$THREADS" && mark_completed "ports"
-    else
-        info "Skipping port scanning (already completed)"
-    fi
+# Run ports and screenshots in parallel (both depend only on clean_httpx.txt)
+_run_ports=false
+_run_screenshots=false
+
+if [[ "$YES_PORTS" == "y" ]] && ! is_completed "ports"; then
+    _run_ports=true
+elif [[ "$YES_PORTS" == "y" ]]; then
+    info "Skipping port scanning (already completed)"
 fi
 
-if [[ "$YES_SCREENSHOTS" == "y" ]]; then
-    if ! is_completed "screenshots"; then
-        screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots"
-    else
-        info "Skipping screenshots (already completed)"
+if [[ "$YES_SCREENSHOTS" == "y" ]] && ! is_completed "screenshots"; then
+    _run_screenshots=true
+elif [[ "$YES_SCREENSHOTS" == "y" ]]; then
+    info "Skipping screenshots (already completed)"
+fi
+
+if [[ "$_run_ports" == "true" || "$_run_screenshots" == "true" ]]; then
+    if [[ "$_run_ports" == "true" ]]; then
+        ( ports_step "$(pwd)" "$THREADS" && mark_completed "ports" ) &
     fi
+    if [[ "$_run_screenshots" == "true" ]]; then
+        ( screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots" ) &
+    fi
+    wait_jobs "ports+screenshots"
 fi
 
 # permutation_step "$(pwd)"
