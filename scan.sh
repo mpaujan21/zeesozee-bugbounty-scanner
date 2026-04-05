@@ -270,7 +270,9 @@ fi
 
 next_step "Export"
 if ! is_completed "export"; then
-    python3 "$HACK/scripts/export_scan_supabase.py" "$FOLDERNAME" --subs "$OUTDIR/httpx.txt" && mark_completed "export"
+    python3 "$SCRIPT_DIR/export_scan_supabase.py" "$FOLDERNAME" \
+        --subs "$OUTDIR/clean_httpx.txt" \
+        --httpx-json "$OUTDIR/httpx.json" && mark_completed "export"
 else
     info "Skipping export (already completed)"
 fi

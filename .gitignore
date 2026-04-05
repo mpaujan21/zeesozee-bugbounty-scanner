@@ -36,3 +36,7 @@ scan-data/
 .idea/
 .vscode/
 *.swp
+
+# Local secrets
+.env
+.env.*
