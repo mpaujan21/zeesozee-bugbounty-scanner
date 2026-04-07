@@ -28,7 +28,7 @@ lib/
 modules/
   subdomains.sh      # Passive enumeration (subfinder, assetfinder, findomain, amass, crt.sh)
   probing.sh         # HTTP probing with httpx, outputs JSON + clean URL list
-  ports.sh           # Port scanning with naabu, categorized port lists
+  ports.sh           # Port scanning with rustscan, categorized port lists
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
   categorize.sh      # GF pattern matching + unfurl extraction
@@ -44,7 +44,7 @@ modules/
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
 2. **probe_step**: httpx probing, generates `httpx.json` and `clean_httpx.txt`
 3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
-4. **ports_step** (optional): naabu scan on categorized ports, httpx probe results
+4. **ports_step** (optional): rustscan scan on categorized ports, httpx probe results
 5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
 6. **permutation_step**: Generate and resolve permutations, append new discoveries
 7. **urls_step**: Passive + active URL collection, uro optimization
@@ -82,7 +82,7 @@ modules/
 
 Enumeration: subfinder, assetfinder, findomain, amass, curl, jq
 DNS: dnsgen, dnsx, alterx, gotator
-Probing: httpx, naabu
+Probing: httpx, rustscan
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder

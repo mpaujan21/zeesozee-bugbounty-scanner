@@ -15,7 +15,7 @@ check_required_tools() {
     local dns_tools=(dnsx dnsgen alterx gotator)
 
     # Probing and scanning tools
-    local probing_tools=(httpx naabu)
+    local probing_tools=(httpx rustscan)
 
     # URL discovery tools
     local url_tools=(waybackurls waymore gau katana gospider uro)

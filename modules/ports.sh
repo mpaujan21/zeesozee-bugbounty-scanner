@@ -65,15 +65,21 @@ ports_step() {
     target_count=$(wc -l < "$outdir/ips.txt")
     info "Scanning $target_count targets (CDN IPs excluded)"
 
-    # Port scan with naabu
-    naabu -l "$outdir/ips.txt" \
+    # Port scan with rustscan
+    rustscan -a "$outdir/ips.txt" \
         -p "$ALL_PORTS" \
-        -rate "$threads" \
-        -c "$threads" \
-        -timeout 5000 \
-        -retries 2 \
-        -silent \
-        -o "$outdir/ports/naabu_output.txt"
+        -b "$threads" \
+        -t 5000 \
+        --tries 2 \
+        --scripts none \
+        -g > "$outdir/ports/rustscan_greppable.txt" 2>/dev/null
+
+    # Convert greppable "IP -> [80,443]" format to host:port per line
+    awk -F' -> ' '{
+        gsub(/[\[\]]/, "", $2)
+        split($2, ports, ",")
+        for (i in ports) print $1 ":" ports[i]
+    }' "$outdir/ports/rustscan_greppable.txt" > "$outdir/ports/naabu_output.txt"
 
     if [[ -s "$outdir/ports/naabu_output.txt" ]]; then
         local open_count

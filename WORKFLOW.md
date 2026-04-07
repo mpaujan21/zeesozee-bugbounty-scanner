@@ -18,7 +18,7 @@ Domain Input
      +------------ (optional) -----+
      |                              v
      |                    +------------------+
-     |                    | 3. Port Scan     |  Scan open ports on live hosts (naabu)
+     |                    | 3. Port Scan     |  Scan open ports on live hosts (rustscan)
      |                    +------------------+
      |                              |
      +<----------------------------+

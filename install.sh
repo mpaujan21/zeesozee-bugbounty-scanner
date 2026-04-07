@@ -51,7 +51,7 @@ install_go_tools() {
 
         # HTTP probing
         "github.com/projectdiscovery/httpx/cmd/httpx@latest"
-        "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"
+        # naabu removed — replaced by rustscan (see install_rust_tools)
 
         # URL discovery
         "github.com/tomnomnom/waybackurls@latest"
@@ -95,6 +95,8 @@ install_rust_tools() {
     info "Installing Rust-based tools..."
     cargo install findomain 2>&1 | tail -1
     ok "Installed findomain"
+    cargo install rustscan 2>&1 | tail -1
+    ok "Installed rustscan"
 }
 
 install_python_tools() {
@@ -193,7 +195,7 @@ verify_installation() {
 
     local required_tools=(
         "subfinder" "assetfinder" "findomain" "amass"
-        "httpx" "naabu" "dnsx"
+        "httpx" "rustscan" "dnsx"
         "waybackurls" "gau" "katana" "gospider"
         "alterx" "dnsgen" "gotator"
         "gf" "unfurl" "ffuf"

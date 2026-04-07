@@ -12,7 +12,7 @@ Automates a fast recon pipeline for bug bounty hunting. The main `scan.sh` scrip
 Install the following command-line tools and make sure they are available in your `PATH`:
 
 - Enumeration: `subfinder`, `assetfinder`, `findomain`
-- Probing & ports: `httpx`, `naabu`, `dnsgen`, `dnsx`
+- Probing & ports: `httpx`, `rustscan`, `dnsgen`, `dnsx`
 - URL collection & cleaning: `waybackurls`, `gau`, `katana`, `uro`
 - Categorization helpers: `gf`, `unfurl`
 - Sensitive file hunting: `backupfinder`, `ffuf`
@@ -47,7 +47,7 @@ During execution the script:
 Within `"$HACK/<foldername>"` expect files such as:
 
 - `subdomains.txt`, `clean_httpx.txt`, `ips.txt`
-- `ports/` (naabu/httpx results per IP)
+- `ports/` (rustscan/httpx results per IP)
 - `urls/`, `urls.txt`, `uro.txt`, and `categorized/` (gf & unfurl outputs)
 - `sensitive/` (backup finder results, filtered file extensions)
 - `js/` artifacts, `js.txt`, `linkfinder.txt`, `trufflehog.txt`

@@ -24,7 +24,7 @@ httpx                   # go install github.com/projectdiscovery/httpx/cmd/httpx
 
 # Port Scanning
 # -------------
-naabu                   # go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+rustscan                # cargo install rustscan
 
 # Subdomain Permutation
 # ---------------------
@@ -73,7 +73,7 @@ paramspider             # pip install paramspider
 # go install github.com/owasp-amass/amass/v4/...@master
 # go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
 # go install github.com/projectdiscovery/httpx/cmd/httpx@latest
-# go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+# cargo install rustscan
 # go install github.com/projectdiscovery/alterx/cmd/alterx@latest
 # go install github.com/Josue87/gotator@latest
 # go install github.com/tomnomnom/waybackurls@latest
