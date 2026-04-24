@@ -18,7 +18,7 @@ probe_step() {
     -include-response-header \
     -timeout 10 -retries 2 -rl 150 \
     -H "$HEADER" -threads "$threads" \
-    -json -o "$outdir/httpx.json"
+    -json -o "$outdir/httpx.json" > /dev/null 2>&1
 
     # Validate JSON output
     if ! validate_json "$outdir/httpx.json" "httpx results"; then

@@ -35,7 +35,7 @@ report_step() {
     local secrets_found endpoints_found permutation_new
 
     local takeover_count screenshots_count
-    takeover_count=$(grep -c '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" 2>/dev/null || echo 0)
+    takeover_count=$(grep -c '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" 2>/dev/null) || takeover_count=0
     screenshots_count=$(find "$outdir/screenshots" -name "*.png" 2>/dev/null | wc -l || echo 0)
 
     subdomains_total=$(count_lines "$outdir/subdomains.txt")

@@ -116,7 +116,7 @@ EOF
             else
                 new_items=$(cat "$curr_file")
             fi
-            new_count=$(echo "$new_items" | grep -c . 2>/dev/null || echo 0)
+            new_count=$(echo "$new_items" | grep -c .) || new_count=0
         fi
 
         # JSON entry
@@ -162,7 +162,7 @@ EOF
             local prev_cat="$prev_snap/categorized/$base"
 
             if [[ -s "$prev_cat" ]]; then
-                new_cat_count=$(comm -13 "$prev_cat" "$f" 2>/dev/null | grep -c . || echo 0)
+                new_cat_count=$(comm -13 "$prev_cat" "$f" 2>/dev/null | grep -c .) || new_cat_count=0
             else
                 new_cat_count=$(wc -l < "$f")
             fi
@@ -254,7 +254,7 @@ _print_delta_summary() {
 
         if [[ -s "$curr_file" ]]; then
             if [[ -s "$prev_file" ]]; then
-                new_count=$(comm -13 "$prev_file" "$curr_file" 2>/dev/null | grep -c . || echo 0)
+                new_count=$(comm -13 "$prev_file" "$curr_file" 2>/dev/null | grep -c .) || new_count=0
             else
                 new_count=$(wc -l < "$curr_file")
             fi
@@ -285,7 +285,7 @@ _prune_snapshots() {
     local all_snaps
     all_snaps=$(find "$snapshots_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     local total
-    total=$(echo "$all_snaps" | grep -c . 2>/dev/null || echo 0)
+    total=$(echo "$all_snaps" | grep -c .) || total=0
 
     if [[ $total -le $max_keep ]]; then
         return 0

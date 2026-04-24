@@ -120,7 +120,7 @@ permutation_step() {
         -favicon -cdn -web-server \
         -timeout 10 -retries 2 -rl 150 \
         -threads "$threads" \
-        -json -o "$outdir/permutations/httpx.json"
+        -json -o "$outdir/permutations/httpx.json" > /dev/null 2>&1
 
     # Validate JSON and extract results
     if validate_json "$outdir/permutations/httpx.json" "permutation httpx results"; then
