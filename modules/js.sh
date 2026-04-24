@@ -6,7 +6,7 @@ js_step() {
 
     # Use config values (set by scan.sh)
     local MAX_PARALLEL="${MAX_PARALLEL_JS:-10}"
-    local MAX_JS_FILES="${MAX_JS_FILES:-500}"
+    local MAX_JS_FILES="${MAX_JS_FILES:-0}"
 
     [[ -s "$outdir/js.txt" ]] || { warn "No JS URLs collected; skipping JS analysis."; return; }
 
@@ -141,4 +141,8 @@ js_step() {
         | sort -u > "$outdir/js/analysis/all_endpoints.txt"
 
     ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
+
+    # Remove raw JS files — analysis results are in js/analysis/
+    rm -rf "$outdir/js/files" "$outdir/js_limited.txt"
+    ok "Cleaned up raw JS files to save storage"
 }

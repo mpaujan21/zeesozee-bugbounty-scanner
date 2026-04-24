@@ -93,7 +93,7 @@ ports_step() {
             -title -tech-detect -status-code -web-server \
             -timeout 10 \
             -threads "$threads" \
-            -json -o "$outdir/ports/httpx_ports.json"
+            -json -o "$outdir/ports/httpx_ports.json" > /dev/null 2>&1
 
         # Validate httpx_ports.json before processing
         if validate_json "$outdir/ports/httpx_ports.json" "httpx ports results"; then
