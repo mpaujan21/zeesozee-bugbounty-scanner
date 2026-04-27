@@ -10,7 +10,10 @@ probe_step() {
         return
     fi
     
-    # Run httpx once with JSON output
+    local ndjson_tmp
+    ndjson_tmp=$(mktemp)
+
+    # Run httpx with NDJSON output to tmp
     httpx -l "$outdir/subdomains.txt" \
     -silent -nc \
     -location -ip -title -tech-detect -status-code -td \
@@ -18,29 +21,32 @@ probe_step() {
     -include-response-header \
     -timeout 10 -retries 2 -rl 150 \
     -H "$HEADER" -threads "$threads" \
-    -json -o "$outdir/httpx.json" > /dev/null 2>&1
+    -json -o "$ndjson_tmp" > /dev/null 2>&1
 
-    # Validate JSON output
-    if ! validate_json "$outdir/httpx.json" "httpx results"; then
+    if ! validate_json "$ndjson_tmp" "httpx results"; then
         warn "httpx did not produce valid JSON output"
+        rm -f "$ndjson_tmp"
         return 1
     fi
 
-    # Generate human-readable format from JSON
+    # Generate human-readable txt from NDJSON
     if ! jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]", "[\(.host // "")]"] | join(" ")' \
-        "$outdir/httpx.json" > "$outdir/httpx.txt" 2>/dev/null; then
+        "$ndjson_tmp" > "$outdir/httpx.txt" 2>/dev/null; then
         err "Failed to generate human-readable httpx output"
+        rm -f "$ndjson_tmp"
         return 1
     fi
 
-    # Extract clean URL list (all status codes — downstream modules filter as needed)
-    if ! jq -r '.url' "$outdir/httpx.json" > "$outdir/clean_httpx.txt" 2>/dev/null; then
+    # Extract clean URL list
+    if ! jq -r '.url' "$ndjson_tmp" > "$outdir/clean_httpx.txt" 2>/dev/null; then
         err "Failed to extract URLs from httpx output"
+        rm -f "$ndjson_tmp"
         return 1
     fi
 
-    # Pretty-printed JSON array for human reading (httpx.json stays as NDJSON for downstream)
-    jq -s '.' "$outdir/httpx.json" > "$outdir/httpx_pretty.json" 2>/dev/null
+    # Convert NDJSON → pretty JSON array (single source of truth)
+    jq -s '.' "$ndjson_tmp" > "$outdir/httpx_pretty.json" 2>/dev/null
+    rm -f "$ndjson_tmp"
 
     ok "Found $(wc -l < "$outdir/clean_httpx.txt" 2>/dev/null || echo 0) live hosts"
 }

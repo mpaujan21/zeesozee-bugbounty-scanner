@@ -6,25 +6,25 @@
 response_analysis_step() {
     local outdir="$1"
     local analysis_dir="$outdir/response_analysis"
-    local httpx_json="$outdir/httpx.json"
+    local httpx_json="$outdir/httpx_pretty.json"
 
     ok "Analyzing HTTP responses..."
 
-    if ! validate_json "$httpx_json" "httpx results"; then
-        warn "httpx.json not found or invalid; skipping response analysis"
+    if [[ ! -s "$httpx_json" ]]; then
+        warn "httpx_pretty.json not found; skipping response analysis"
         return 0
     fi
 
     ensure_dir "$analysis_dir"
 
     # 1. Interesting status codes (401, 403, 405, 500, 502, 503)
-    jq -r 'select(.status_code == 401 or .status_code == 403 or .status_code == 405 or
+    jq -r '.[] | select(.status_code == 401 or .status_code == 403 or .status_code == 405 or
                    .status_code == 500 or .status_code == 502 or .status_code == 503)
         | "\(.url) [\(.status_code)]"' "$httpx_json" \
         > "$analysis_dir/interesting_status_codes.txt" 2>/dev/null &
 
     # 2. Tech stack summary
-    jq -r 'select(.tech != null and (.tech | length > 0))
+    jq -r '.[] | select(.tech != null and (.tech | length > 0))
         | "\(.url) -> \(.tech | join(", "))"' "$httpx_json" \
         > "$analysis_dir/tech_stack.txt" 2>/dev/null &
 

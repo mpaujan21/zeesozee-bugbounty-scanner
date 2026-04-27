@@ -53,16 +53,18 @@ report_step() {
     local tool_waybackurls tool_waymore tool_gau tool_katana tool_gospider
     local tool_jsluice tool_linkfinder
 
-    tool_subfinder=$(count_lines "$outdir/subdomains/subfinder.txt")
-    tool_assetfinder=$(count_lines "$outdir/subdomains/assetfinder.txt")
-    tool_findomain=$(count_lines "$outdir/subdomains/findomain.txt")
-    tool_amass=$(count_lines "$outdir/subdomains/amass.txt")
-    tool_crtsh=$(count_lines "$outdir/subdomains/crtsh.txt")
-    tool_waybackurls=$(count_lines "$outdir/urls/waybackurls.txt")
-    tool_waymore=$(count_lines "$outdir/urls/waymore.txt")
-    tool_gau=$(count_lines "$outdir/urls/gau.txt")
-    tool_katana=$(count_lines "$outdir/urls/katana.txt")
-    tool_gospider=$(count_lines "$outdir/urls/gospider.txt")
+    local subs_counts="$outdir/subdomains_tool_counts.json"
+    local urls_counts="$outdir/urls_tool_counts.json"
+    tool_subfinder=$(jq -r '.subfinder // 0' "$subs_counts" 2>/dev/null || echo 0)
+    tool_assetfinder=$(jq -r '.assetfinder // 0' "$subs_counts" 2>/dev/null || echo 0)
+    tool_findomain=$(jq -r '.findomain // 0' "$subs_counts" 2>/dev/null || echo 0)
+    tool_amass=$(jq -r '.amass // 0' "$subs_counts" 2>/dev/null || echo 0)
+    tool_crtsh=$(jq -r '.crtsh // 0' "$subs_counts" 2>/dev/null || echo 0)
+    tool_waybackurls=$(jq -r '.waybackurls // 0' "$urls_counts" 2>/dev/null || echo 0)
+    tool_waymore=$(jq -r '.waymore // 0' "$urls_counts" 2>/dev/null || echo 0)
+    tool_gau=$(jq -r '.gau // 0' "$urls_counts" 2>/dev/null || echo 0)
+    tool_katana=$(jq -r '.katana // 0' "$urls_counts" 2>/dev/null || echo 0)
+    tool_gospider=$(jq -r '.gospider // 0' "$urls_counts" 2>/dev/null || echo 0)
     tool_jsluice=$(count_lines "$outdir/js/analysis/jsluice_urls.txt")
     tool_linkfinder=$(count_lines "$outdir/js/analysis/linkfinder.txt")
 

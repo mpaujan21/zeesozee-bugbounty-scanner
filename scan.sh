@@ -272,7 +272,7 @@ next_step "Export"
 if ! is_completed "export"; then
     python3 "$SCRIPT_DIR/export_scan_supabase.py" "$FOLDERNAME" \
         --subs "$OUTDIR/clean_httpx.txt" \
-        --httpx-json "$OUTDIR/httpx.json" && mark_completed "export"
+        --httpx-json "$OUTDIR/httpx_pretty.json" && mark_completed "export"
 else
     info "Skipping export (already completed)"
 fi

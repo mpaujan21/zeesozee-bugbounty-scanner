@@ -29,9 +29,8 @@ ALL_PORTS="${PORTS_WEB},${PORTS_DEV},${PORTS_ADMIN},${PORTS_APPSERVER},${PORTS_A
 ports_step() {
     local outdir="$1" threads="${2:-50}"
 
-    # Validate httpx.json exists and is valid
-    if ! validate_json "$outdir/httpx.json" "httpx results"; then
-        warn "httpx.json not found or invalid; skipping port scan"
+    if [[ ! -s "$outdir/httpx_pretty.json" ]]; then
+        warn "httpx_pretty.json not found; skipping port scan"
         return
     fi
 
@@ -42,14 +41,14 @@ ports_step() {
     targets_tmp=$(mktemp)
 
     # Extract IPs from JSON (exclude CDN IPs)
-    jq -r 'select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx.json" \
+    jq -r '.[] | select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx_pretty.json" \
         | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
         | sort -u > "$targets_tmp" 2>/dev/null
 
     # Fallback to hostnames if no IPs found
     if [[ ! -s "$targets_tmp" ]]; then
         warn "No IPs extracted, trying hostnames..."
-        jq -r 'select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx.json" \
+        jq -r '.[] | select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx_pretty.json" \
             | sort -u > "$targets_tmp" 2>/dev/null
     fi
 

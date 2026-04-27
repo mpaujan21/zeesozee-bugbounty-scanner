@@ -80,6 +80,15 @@ subdomains_step() {
         | sed 's/^\[.*\] //' \
         | sort -fu > "$outdir/subdomains.txt"
 
+    # Save per-tool counts before cleanup
+    printf '{"subfinder":%d,"assetfinder":%d,"findomain":%d,"amass":%d,"crtsh":%d}\n' \
+        "$(grep -c "" "$tmpdir/subfinder.txt" 2>/dev/null || echo 0)" \
+        "$(grep -c "" "$tmpdir/assetfinder.txt" 2>/dev/null || echo 0)" \
+        "$(grep -c "" "$tmpdir/findomain.txt" 2>/dev/null || echo 0)" \
+        "$(grep -c "" "$tmpdir/amass.txt" 2>/dev/null || echo 0)" \
+        "$(grep -c "" "$tmpdir/crtsh.txt" 2>/dev/null || echo 0)" \
+        > "$outdir/subdomains_tool_counts.json"
+
     rm -rf "$tmpdir"
 
     # Wildcard Detection (informational)

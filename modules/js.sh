@@ -113,26 +113,16 @@ js_step() {
         --only-verified \
         --json 2>/dev/null > "$outdir/js/analysis/trufflehog.json"
 
-    # Human readable trufflehog output
     if [[ -s "$outdir/js/analysis/trufflehog.json" ]]; then
-        # Validate JSON (trufflehog outputs JSONL - one JSON per line)
-        # We'll just check if jq can parse it
-        if jq -r 'select(.Raw) | "\(.DetectorName): \(.Raw[:50])... in \(.SourceMetadata.Data.Filesystem.file)"' \
+        jq -r 'select(.Raw) | "\(.DetectorName): \(.Raw[:50])... in \(.SourceMetadata.Data.Filesystem.file)"' \
             "$outdir/js/analysis/trufflehog.json" 2>/dev/null \
-            > "$outdir/js/analysis/trufflehog.txt"; then
-
-            local secrets_count
-            secrets_count=$(wc -l < "$outdir/js/analysis/trufflehog.txt" 2>/dev/null || echo 0)
-            if [[ $secrets_count -gt 0 ]]; then
-                warn "Found $secrets_count potential secrets!"
-            else
-                ok "No verified secrets found"
-            fi
-        else
-            warn "Failed to parse trufflehog output"
-            ok "No verified secrets found"
-        fi
+            > "$outdir/js/analysis/trufflehog.txt"
+        [[ ! -s "$outdir/js/analysis/trufflehog.txt" ]] && rm -f "$outdir/js/analysis/trufflehog.txt"
+        local secrets_count
+        secrets_count=$(wc -l < "$outdir/js/analysis/trufflehog.txt" 2>/dev/null || echo 0)
+        [[ $secrets_count -gt 0 ]] && warn "Found $secrets_count potential secrets!" || ok "No verified secrets found"
     else
+        rm -f "$outdir/js/analysis/trufflehog.json"
         ok "No verified secrets found"
     fi
 
@@ -140,6 +130,8 @@ js_step() {
     cat "$outdir/js/analysis/jsluice_urls.txt" \
         "$outdir/js/analysis/linkfinder.txt" 2>/dev/null \
         | sort -u > "$outdir/js/analysis/all_endpoints.txt"
+    [[ ! -s "$outdir/js/analysis/all_endpoints.txt" ]] && rm -f "$outdir/js/analysis/all_endpoints.txt"
+    [[ ! -s "$outdir/js/analysis/linkfinder.txt" ]] && rm -f "$outdir/js/analysis/linkfinder.txt"
 
     ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
 

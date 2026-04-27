@@ -105,8 +105,8 @@ resume_info() {
       warn "Resume: subdomains marked complete but subdomains.txt is empty/missing"
       warnings=$((warnings + 1))
     fi
-    if is_completed "probe" && [[ ! -s "$outdir/httpx.json" ]]; then
-      warn "Resume: probe marked complete but httpx.json is empty/missing"
+    if is_completed "probe" && [[ ! -s "$outdir/httpx_pretty.json" ]]; then
+      warn "Resume: probe marked complete but httpx_pretty.json is empty/missing"
       warnings=$((warnings + 1))
     fi
     if is_completed "urls" && [[ ! -s "$outdir/urls.txt" ]]; then

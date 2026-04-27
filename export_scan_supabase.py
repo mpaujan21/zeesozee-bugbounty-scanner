@@ -213,13 +213,11 @@ def load_records(program_id: str, subs_path: str, httpx_json_path: str | None) -
 
     if httpx_json_path and os.path.exists(httpx_json_path) and os.path.getsize(httpx_json_path) > 0:
         with open(httpx_json_path, "r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                entry = json.loads(line)
-                record = build_record_from_json(entry, program_id)
-                if record:
-                    records_by_subdomain[record["subdomain"]] = record
+            entries = json.load(handle)
+        for entry in entries:
+            record = build_record_from_json(entry, program_id)
+            if record:
+                records_by_subdomain[record["subdomain"]] = record
 
     with open(subs_path, "r", encoding="utf-8") as handle:
         for line in handle:
