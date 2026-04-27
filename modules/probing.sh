@@ -39,6 +39,8 @@ probe_step() {
         return 1
     fi
 
-    # Keep httpx.json for downstream modules (ports.sh needs it for CDN filtering)
+    # Pretty-printed JSON array for human reading (httpx.json stays as NDJSON for downstream)
+    jq -s '.' "$outdir/httpx.json" > "$outdir/httpx_pretty.json" 2>/dev/null
+
     ok "Found $(wc -l < "$outdir/clean_httpx.txt" 2>/dev/null || echo 0) live hosts"
 }

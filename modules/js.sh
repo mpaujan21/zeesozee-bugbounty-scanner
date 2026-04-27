@@ -72,14 +72,15 @@ js_step() {
     info "Extracting endpoints and secrets..."
     if command -v jsluice >/dev/null 2>&1; then
         info "Running jsluice..."
-        find "$outdir/js/files" -name "*.js" -size +0 -exec cat {} \; 2>/dev/null \
-            | jsluice urls 2>/dev/null \
+        find "$outdir/js/files" -name "*.js" -size +0 -exec jsluice urls {} \; 2>/dev/null \
             | jq -r '.url // empty' 2>/dev/null \
             | sort -u > "$outdir/js/analysis/jsluice_urls.txt"
 
-        find "$outdir/js/files" -name "*.js" -size +0 -exec cat {} \; 2>/dev/null \
-            | jsluice secrets 2>/dev/null \
+        find "$outdir/js/files" -name "*.js" -size +0 -exec jsluice secrets {} \; 2>/dev/null \
             > "$outdir/js/analysis/jsluice_secrets.txt"
+
+        [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]] && rm -f "$outdir/js/analysis/jsluice_urls.txt"
+        [[ ! -s "$outdir/js/analysis/jsluice_secrets.txt" ]] && rm -f "$outdir/js/analysis/jsluice_secrets.txt"
 
         ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) URLs"
     fi

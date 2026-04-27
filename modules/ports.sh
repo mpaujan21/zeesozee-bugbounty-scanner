@@ -38,41 +38,40 @@ ports_step() {
     ok "Starting port scanning..."
     ensure_dir "$outdir/ports"
 
+    local targets_tmp
+    targets_tmp=$(mktemp)
+
     # Extract IPs from JSON (exclude CDN IPs)
-    if ! jq -r 'select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx.json" \
+    jq -r 'select(.cdn == null or .cdn == false) | .host // .a // empty' "$outdir/httpx.json" \
         | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -u > "$outdir/ips.txt" 2>/dev/null; then
-        warn "Failed to extract IPs from httpx.json"
-    fi
+        | sort -u > "$targets_tmp" 2>/dev/null
 
-    # Also extract hostnames for non-IP targets
-    if ! jq -r 'select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx.json" \
-        | sort -u > "$outdir/hosts_for_portscan.txt" 2>/dev/null; then
-        warn "Failed to extract hostnames from httpx.json"
-    fi
-
-    if [[ ! -s "$outdir/ips.txt" ]]; then
+    # Fallback to hostnames if no IPs found
+    if [[ ! -s "$targets_tmp" ]]; then
         warn "No IPs extracted, trying hostnames..."
-        cp "$outdir/hosts_for_portscan.txt" "$outdir/ips.txt"
+        jq -r 'select(.cdn == null or .cdn == false) | .input // empty' "$outdir/httpx.json" \
+            | sort -u > "$targets_tmp" 2>/dev/null
     fi
 
-    if [[ ! -s "$outdir/ips.txt" ]]; then
+    if [[ ! -s "$targets_tmp" ]]; then
         warn "No targets for port scan."
+        rm -f "$targets_tmp"
         return
     fi
 
     local target_count
-    target_count=$(wc -l < "$outdir/ips.txt")
+    target_count=$(wc -l < "$targets_tmp")
     info "Scanning $target_count targets (CDN IPs excluded)"
 
     # Port scan with rustscan
-    rustscan -a "$outdir/ips.txt" \
+    rustscan -a "$targets_tmp" \
         -p "$ALL_PORTS" \
         -b "$threads" \
         -t 5000 \
         --tries 2 \
         --scripts none \
         -g > "$outdir/ports/rustscan_greppable.txt" 2>/dev/null
+    rm -f "$targets_tmp"
 
     # Convert greppable "IP -> [80,443]" format to host:port per line
     awk -F' -> ' '{
@@ -86,28 +85,17 @@ ports_step() {
         open_count=$(wc -l < "$outdir/ports/naabu_output.txt")
         ok "Found $open_count open ports"
 
-        # Probe discovered ports with httpx (JSON output)
+        # Probe discovered ports with httpx
         info "Probing open ports for HTTP services..."
         httpx -l "$outdir/ports/naabu_output.txt" \
             -silent -nc \
             -title -tech-detect -status-code -web-server \
             -timeout 10 \
             -threads "$threads" \
-            -json -o "$outdir/ports/httpx_ports.json" > /dev/null 2>&1
+            -o "$outdir/ports/httpx_ports.txt" > /dev/null 2>&1
 
-        # Validate httpx_ports.json before processing
-        if validate_json "$outdir/ports/httpx_ports.json" "httpx ports results"; then
-            # Generate human-readable format from JSON
-            if jq -r '[.url, "[\(.status_code)]", "[\(.title // "")]", "[\(.webserver // "")]", "[\(.tech // [] | join(","))]"] | join(" ")' \
-                "$outdir/ports/httpx_ports.json" > "$outdir/ports/httpx_ports.txt" 2>/dev/null; then
-                if [[ -s "$outdir/ports/httpx_ports.txt" ]]; then
-                    ok "Found $(wc -l < "$outdir/ports/httpx_ports.txt") HTTP services on non-standard ports"
-                fi
-            else
-                warn "Failed to parse httpx ports results"
-            fi
-        else
-            warn "httpx did not produce valid JSON for port probing"
+        if [[ -s "$outdir/ports/httpx_ports.txt" ]]; then
+            ok "Found $(wc -l < "$outdir/ports/httpx_ports.txt") HTTP services on non-standard ports"
         fi
     else
         info "No additional open ports found"

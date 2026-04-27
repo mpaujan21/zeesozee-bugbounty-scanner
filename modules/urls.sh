@@ -31,7 +31,8 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_GAU"; then
             info "Running gau"
-            gau -l "$outdir/clean_httpx.txt" --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
+            grep -oP 'https?://\K[^/]+' "$outdir/clean_httpx.txt" | sort -u \
+                | gau --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
                 | sort -u > "$outdir/urls/gau.txt" &
         else
             info "Skipping gau (disabled in config)"
@@ -57,10 +58,12 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_GOSPIDER"; then
             info "Running gospider"
-            gospider -S "$outdir/clean_httpx.txt" \
-            -c "$threads" -d 2 --blacklist "$BLACKLIST" \
-            -q -o "$outdir/urls/gospider_raw" 2>/dev/null && \
-            grep -hoE 'https?://[^ ]+' "$outdir/urls/gospider_raw"/* 2>/dev/null | sort -u > "$outdir/urls/gospider.txt" &
+            (
+                gospider -S "$outdir/clean_httpx.txt" \
+                -c "$threads" -d 2 --blacklist "$BLACKLIST" \
+                -q -o "$outdir/urls/gospider_raw" 2>/dev/null
+                grep -hoE 'https?://[^ ]+' "$outdir/urls/gospider_raw"/* 2>/dev/null | sort -u > "$outdir/urls/gospider.txt"
+            ) &
         else
             info "Skipping gospider (disabled in config)"
             touch "$outdir/urls/gospider.txt"

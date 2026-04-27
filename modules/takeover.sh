@@ -57,8 +57,9 @@ takeover_step() {
 
     # Step 1: Batch CNAME lookup with dnsx
     if command -v dnsx >/dev/null 2>&1; then
-        dnsx -l "$subs_file" -cname -resp -silent -t "$threads" \
-            > "$takeover_dir/cname_results.txt" 2>/dev/null || true
+        dnsx -l "$subs_file" -cname -resp -silent -t "$threads" 2>/dev/null \
+            | sed 's/\x1b\[[0-9;]*[mK]//g' \
+            > "$takeover_dir/cname_results.txt" || true
     else
         warn "dnsx not found, using dig fallback (slower)"
         > "$takeover_dir/cname_results.txt"
@@ -123,38 +124,6 @@ takeover_step() {
         fi
     done
 
-    # Step 4: Generate JSON output
-    local total_candidates=${#candidates[@]}
-    cat > "$takeover_dir/takeover.json" << EOF
-{
-  "cname_records": $cname_count,
-  "candidates_checked": $total_candidates,
-  "confirmed_vulnerable": $confirmed,
-  "results": [
-EOF
-
-    local first=true
-    while IFS= read -r line; do
-        local status sub cname svc
-        status=$(echo "$line" | grep -oP '^\[.*?\]')
-        sub=$(echo "$line" | awk '{print $2}')
-        cname=$(echo "$line" | awk '{print $4}')
-        svc=$(echo "$line" | grep -oP '\(.*?\)' | head -1 | tr -d '()')
-
-        if [[ "$first" == "true" ]]; then
-            first=false
-        else
-            echo "," >> "$takeover_dir/takeover.json"
-        fi
-        printf '    {"status": "%s", "subdomain": "%s", "cname": "%s", "service": "%s"}' \
-            "$status" "$sub" "$cname" "$svc" >> "$takeover_dir/takeover.json"
-    done < "$takeover_dir/potential_takeovers.txt"
-
-    cat >> "$takeover_dir/takeover.json" << EOF
-
-  ]
-}
-EOF
 
     if [[ $confirmed -gt 0 ]]; then
         warn "Found $confirmed potential subdomain takeover(s)!"
