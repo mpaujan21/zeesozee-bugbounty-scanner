@@ -18,23 +18,23 @@ urls_step() {
     (
         if is_tool_enabled "ENABLE_WAYBACKURLS"; then
             info "Running waybackurls"
-            waybackurls < "$outdir/clean_httpx.txt" 2>/dev/null | sort -u > "$tmpdir/waybackurls.txt" &
+            { waybackurls < "$outdir/clean_httpx.txt" 2>/dev/null | sort -u > "$tmpdir/waybackurls.txt"; } || true &
         else
             touch "$tmpdir/waybackurls.txt"
         fi
 
         if is_tool_enabled "ENABLE_WAYMORE"; then
             info "Running waymore"
-            waymore -i "$domain" -n -mode U -oU "$tmpdir/waymore.txt" >/dev/null 2>&1 &
+            { waymore -i "$domain" -n -mode U -oU "$tmpdir/waymore.txt" >/dev/null 2>&1; } || true &
         else
             touch "$tmpdir/waymore.txt"
         fi
 
         if is_tool_enabled "ENABLE_GAU"; then
             info "Running gau"
-            grep -oP 'https?://\K[^/]+' "$outdir/clean_httpx.txt" | sort -u \
+            { grep -oP 'https?://\K[^/]+' "$outdir/clean_httpx.txt" | sort -u \
                 | gau --subs --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
-                | sort -u > "$tmpdir/gau.txt" &
+                | sort -u > "$tmpdir/gau.txt"; } || true &
         else
             touch "$tmpdir/gau.txt"
         fi
@@ -86,15 +86,6 @@ urls_step() {
     else
         cp "$tmpdir/all_urls.txt" "$outdir/urls.txt"
     fi
-
-    # Save per-tool counts before cleanup
-    printf '{"waybackurls":%d,"waymore":%d,"gau":%d,"katana":%d,"gospider":%d}\n' \
-        "$(grep -c "" "$tmpdir/waybackurls.txt" 2>/dev/null || echo 0)" \
-        "$(grep -c "" "$tmpdir/waymore.txt" 2>/dev/null || echo 0)" \
-        "$(grep -c "" "$tmpdir/gau.txt" 2>/dev/null || echo 0)" \
-        "$(grep -c "" "$tmpdir/katana.txt" 2>/dev/null || echo 0)" \
-        "$(grep -c "" "$tmpdir/gospider.txt" 2>/dev/null || echo 0)" \
-        > "$outdir/urls_tool_counts.json"
 
     rm -rf "$tmpdir"
 

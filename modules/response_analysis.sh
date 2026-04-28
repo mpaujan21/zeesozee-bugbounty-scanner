@@ -35,8 +35,8 @@ response_analysis_step() {
 
     # Print summary
     local interesting tech
-    interesting=$(wc -l < "$analysis_dir/interesting_status_codes.txt" 2>/dev/null || echo 0)
-    tech=$(wc -l < "$analysis_dir/tech_stack.txt" 2>/dev/null || echo 0)
+    interesting=$([[ -f "$analysis_dir/interesting_status_codes.txt" ]] && wc -l < "$analysis_dir/interesting_status_codes.txt" || echo 0)
+    tech=$([[ -f "$analysis_dir/tech_stack.txt" ]] && wc -l < "$analysis_dir/tech_stack.txt" || echo 0)
 
     [[ $interesting -gt 0 ]] && info "Interesting status codes: $interesting"
     [[ $tech -gt 0 ]] && info "Tech stack detected on: $tech hosts"

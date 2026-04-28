@@ -36,37 +36,17 @@ report_step() {
 
     local takeover_count screenshots_count
     takeover_count=$(grep -c '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" 2>/dev/null) || takeover_count=0
-    screenshots_count=$(find "$outdir/screenshots" -name "*.png" 2>/dev/null | wc -l || echo 0)
+    screenshots_count=$(find "$outdir/screenshots" -name "*.png" 2>/dev/null | wc -l) || screenshots_count=0
 
     subdomains_total=$(count_lines "$outdir/subdomains.txt")
     subdomains_live=$(count_lines "$outdir/clean_httpx.txt")
     urls_total=$(count_lines "$outdir/urls.txt")
     urls_optimized=$(count_lines "$outdir/uro.txt")
     js_files=$(count_lines "$outdir/js.txt")
-    ports_open=$(count_lines "$outdir/ports/naabu_output.txt")
+    ports_open=$(count_lines "$outdir/ports/httpx_ports.txt")
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
-
-    # Per-tool effectiveness metrics
-    local tool_subfinder tool_assetfinder tool_findomain tool_amass tool_crtsh
-    local tool_waybackurls tool_waymore tool_gau tool_katana tool_gospider
-    local tool_jsluice tool_linkfinder
-
-    local subs_counts="$outdir/subdomains_tool_counts.json"
-    local urls_counts="$outdir/urls_tool_counts.json"
-    tool_subfinder=$(jq -r '.subfinder // 0' "$subs_counts" 2>/dev/null || echo 0)
-    tool_assetfinder=$(jq -r '.assetfinder // 0' "$subs_counts" 2>/dev/null || echo 0)
-    tool_findomain=$(jq -r '.findomain // 0' "$subs_counts" 2>/dev/null || echo 0)
-    tool_amass=$(jq -r '.amass // 0' "$subs_counts" 2>/dev/null || echo 0)
-    tool_crtsh=$(jq -r '.crtsh // 0' "$subs_counts" 2>/dev/null || echo 0)
-    tool_waybackurls=$(jq -r '.waybackurls // 0' "$urls_counts" 2>/dev/null || echo 0)
-    tool_waymore=$(jq -r '.waymore // 0' "$urls_counts" 2>/dev/null || echo 0)
-    tool_gau=$(jq -r '.gau // 0' "$urls_counts" 2>/dev/null || echo 0)
-    tool_katana=$(jq -r '.katana // 0' "$urls_counts" 2>/dev/null || echo 0)
-    tool_gospider=$(jq -r '.gospider // 0' "$urls_counts" 2>/dev/null || echo 0)
-    tool_jsluice=$(count_lines "$outdir/js/analysis/jsluice_urls.txt")
-    tool_linkfinder=$(count_lines "$outdir/js/analysis/linkfinder.txt")
 
     # Generate Markdown Report
     cat > "$report_md" << EOF
@@ -89,7 +69,7 @@ report_step() {
 | Subdomains Found | $subdomains_total |
 | Live Subdomains | $subdomains_live |
 | New from Permutations | $permutation_new |
-| Open Ports | $ports_open |
+| HTTP on Non-Std Ports | $ports_open |
 | URLs Discovered | $urls_total |
 | URLs (optimized) | $urls_optimized |
 | JavaScript Files | $js_files |
@@ -152,43 +132,6 @@ EOF
         fi
     done
 
-    # Tool effectiveness metrics
-    echo >> "$report_md"
-    echo "---" >> "$report_md"
-    echo >> "$report_md"
-    echo "## Tool Effectiveness" >> "$report_md"
-    echo >> "$report_md"
-    echo "### Subdomain Enumeration" >> "$report_md"
-    echo "| Tool | Results |" >> "$report_md"
-    echo "|------|---------|" >> "$report_md"
-    [[ $tool_subfinder -gt 0 ]] && echo "| subfinder | $tool_subfinder |" >> "$report_md"
-    [[ $tool_assetfinder -gt 0 ]] && echo "| assetfinder | $tool_assetfinder |" >> "$report_md"
-    [[ $tool_findomain -gt 0 ]] && echo "| findomain | $tool_findomain |" >> "$report_md"
-    [[ $tool_amass -gt 0 ]] && echo "| amass | $tool_amass |" >> "$report_md"
-    [[ $tool_crtsh -gt 0 ]] && echo "| crt.sh | $tool_crtsh |" >> "$report_md"
-    echo "| **Combined (deduped)** | **$subdomains_total** |" >> "$report_md"
-    echo >> "$report_md"
-    echo "### URL Discovery" >> "$report_md"
-    echo "| Tool | Results |" >> "$report_md"
-    echo "|------|---------|" >> "$report_md"
-    [[ $tool_waybackurls -gt 0 ]] && echo "| waybackurls | $tool_waybackurls |" >> "$report_md"
-    [[ $tool_waymore -gt 0 ]] && echo "| waymore | $tool_waymore |" >> "$report_md"
-    [[ $tool_gau -gt 0 ]] && echo "| gau | $tool_gau |" >> "$report_md"
-    [[ $tool_katana -gt 0 ]] && echo "| katana | $tool_katana |" >> "$report_md"
-    [[ $tool_gospider -gt 0 ]] && echo "| gospider | $tool_gospider |" >> "$report_md"
-    echo "| **Combined (deduped)** | **$urls_total** |" >> "$report_md"
-    echo >> "$report_md"
-
-    if [[ $tool_jsluice -gt 0 || $tool_linkfinder -gt 0 ]]; then
-        echo "### JS Analysis" >> "$report_md"
-        echo "| Tool | Results |" >> "$report_md"
-        echo "|------|---------|" >> "$report_md"
-        [[ $tool_jsluice -gt 0 ]] && echo "| jsluice | $tool_jsluice |" >> "$report_md"
-        [[ $tool_linkfinder -gt 0 ]] && echo "| LinkFinder | $tool_linkfinder |" >> "$report_md"
-        echo "| **Combined (deduped)** | **$endpoints_found** |" >> "$report_md"
-        echo >> "$report_md"
-    fi
-
     # Port scan results
     if has_content "$outdir/ports/httpx_ports.txt"; then
         echo >> "$report_md"
@@ -224,7 +167,7 @@ EOF
 |------|-------------|
 | `subdomains.txt` | All discovered subdomains |
 | `clean_httpx.txt` | Live subdomains (HTTP probe) |
-| `httpx.json` | Full HTTP probe data |
+| `httpx_pretty.json` | Full HTTP probe data |
 | `urls.txt` | All discovered URLs |
 | `uro.txt` | Optimized/deduped URLs |
 | `js.txt` | JavaScript file URLs |
@@ -266,26 +209,6 @@ EOF
   "high_priority": {
     "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
     "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false")
-  },
-  "tool_effectiveness": {
-    "subdomains": {
-      "subfinder": $tool_subfinder,
-      "assetfinder": $tool_assetfinder,
-      "findomain": $tool_findomain,
-      "amass": $tool_amass,
-      "crtsh": $tool_crtsh
-    },
-    "urls": {
-      "waybackurls": $tool_waybackurls,
-      "waymore": $tool_waymore,
-      "gau": $tool_gau,
-      "katana": $tool_katana,
-      "gospider": $tool_gospider
-    },
-    "js_analysis": {
-      "jsluice": $tool_jsluice,
-      "linkfinder": $tool_linkfinder
-    }
   }
 }
 EOF
@@ -300,7 +223,7 @@ EOF
     echo "════════════════════════════════════════════════════════════"
     echo "  Subdomains: $subdomains_live live / $subdomains_total total"
     echo "  URLs: $urls_optimized optimized / $urls_total total"
-    echo "  Ports: $ports_open open"
+    echo "  HTTP on non-std ports: $ports_open"
     echo "  JS Files: $js_files"
     echo "  Endpoints: $endpoints_found"
     [[ $takeover_count -gt 0 ]] && echo "  ⚠ TAKEOVERS FOUND: $takeover_count"

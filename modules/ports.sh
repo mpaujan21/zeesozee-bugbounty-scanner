@@ -62,31 +62,32 @@ ports_step() {
     target_count=$(wc -l < "$targets_tmp")
     info "Scanning $target_count targets (CDN IPs excluded)"
 
-    # Port scan with rustscan
+    local open_ports_tmp
+    open_ports_tmp=$(mktemp)
+
+    # Port scan with rustscan, convert greppable output to host:port per line
     rustscan -a "$targets_tmp" \
         -p "$ALL_PORTS" \
         -b "$threads" \
         -t 5000 \
         --tries 2 \
         --scripts none \
-        -g > "$outdir/ports/rustscan_greppable.txt" 2>/dev/null
-    rm -f "$targets_tmp"
-
-    # Convert greppable "IP -> [80,443]" format to host:port per line
-    awk -F' -> ' '{
+        -g 2>/dev/null \
+    | awk -F' -> ' '{
         gsub(/[\[\]]/, "", $2)
         split($2, ports, ",")
         for (i in ports) print $1 ":" ports[i]
-    }' "$outdir/ports/rustscan_greppable.txt" > "$outdir/ports/naabu_output.txt"
+    }' > "$open_ports_tmp"
+    rm -f "$targets_tmp"
 
-    if [[ -s "$outdir/ports/naabu_output.txt" ]]; then
+    if [[ -s "$open_ports_tmp" ]]; then
         local open_count
-        open_count=$(wc -l < "$outdir/ports/naabu_output.txt")
+        open_count=$(wc -l < "$open_ports_tmp")
         ok "Found $open_count open ports"
 
         # Probe discovered ports with httpx
         info "Probing open ports for HTTP services..."
-        httpx -l "$outdir/ports/naabu_output.txt" \
+        httpx -l "$open_ports_tmp" \
             -silent -nc \
             -title -tech-detect -status-code -web-server \
             -timeout 10 \
@@ -99,6 +100,7 @@ ports_step() {
     else
         info "No additional open ports found"
     fi
+    rm -f "$open_ports_tmp"
 
     ok "Port scanning completed"
 }
