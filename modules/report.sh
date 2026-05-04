@@ -40,7 +40,7 @@ report_step() {
     subdomains_total=$(count_lines "$outdir/subdomains.txt")
     subdomains_live=$(count_lines "$outdir/clean_httpx.txt")
     urls_total=$(count_lines "$outdir/urls.txt")
-    urls_optimized=$(count_lines "$outdir/uro.txt")
+    urls_optimized=$(count_lines "$outdir/urls_optimized.txt")
     js_files=$(count_lines "$outdir/js.txt")
     ports_open=$(count_lines "$outdir/ports/httpx_ports.txt")
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")

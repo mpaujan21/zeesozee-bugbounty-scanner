@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing response_analysis ports permutation urls categorize js report takeover screenshots delta; do
+for mod in subdomains probing ports permutation urls categorize js report takeover screenshots delta; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -138,7 +138,7 @@ fi
 [[ "$YES_SCREENSHOTS" == "ask" ]] && YES_SCREENSHOTS="$(prompt_yn 'Capture Screenshots?')"
 
 # Calculate total steps based on enabled features
-TOTAL_STEPS=7  # subdomains, probe, response_analysis, urls, categorize, report, delta
+TOTAL_STEPS=6  # subdomains, probe, urls, categorize, report, delta
 is_tool_enabled ENABLE_TAKEOVER && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_PORTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_SCREENSHOTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
@@ -175,16 +175,9 @@ fi
 
 next_step "HTTP Probing"
 if ! is_completed "probe"; then
-    probe_step "$(pwd)" "$THREADS" "$DOMAIN" && mark_completed "probe"
+    probe_step "$(pwd)" "$THREADS" && mark_completed "probe"
 else
     info "Skipping probing (already completed)"
-fi
-
-next_step "Response Analysis"
-if ! is_completed "response_analysis"; then
-    response_analysis_step "$(pwd)" && mark_completed "response_analysis"
-else
-    info "Skipping response analysis (already completed)"
 fi
 
 if is_tool_enabled ENABLE_TAKEOVER; then
@@ -248,7 +241,7 @@ fi
 if [[ "$YES_JS" == "y" ]]; then
     next_step "JavaScript Analysis"
     if ! is_completed "js"; then
-        js_step "$(pwd)" && mark_completed "js"
+        js_step "$(pwd)" "$THREADS" "$DOMAIN" && mark_completed "js"
     else
         info "Skipping JS analysis (already completed)"
     fi
@@ -271,8 +264,7 @@ fi
 next_step "Export"
 if ! is_completed "export"; then
     python3 "$SCRIPT_DIR/export_scan_supabase.py" "$FOLDERNAME" \
-        --subs "$OUTDIR/clean_httpx.txt" \
-        --httpx-json "$OUTDIR/httpx_pretty.json" && mark_completed "export"
+        --subs "$OUTDIR/clean_httpx.txt" && mark_completed "export"
 else
     info "Skipping export (already completed)"
 fi

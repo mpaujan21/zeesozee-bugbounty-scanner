@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 js_step() {
-    local outdir="$1" threads="${2:-50}"
+    local outdir="$1" threads="${2:-50}" domain="${3:-}"
 
     # Use config values (set by scan.sh)
     local MAX_PARALLEL="${MAX_PARALLEL_JS:-10}"
@@ -17,13 +17,13 @@ js_step() {
     local js_count
     js_count=$(wc -l < "$outdir/js.txt")
 
-    # Limit JS files if too many
+    # Point to limited subset if needed, otherwise use js.txt directly
+    local js_input="$outdir/js.txt"
     if [[ $MAX_JS_FILES -gt 0 && $js_count -gt $MAX_JS_FILES ]]; then
         warn "Too many JS files ($js_count), limiting to $MAX_JS_FILES"
         head -n "$MAX_JS_FILES" "$outdir/js.txt" > "$outdir/js_limited.txt"
+        js_input="$outdir/js_limited.txt"
         js_count=$MAX_JS_FILES
-    else
-        cp "$outdir/js.txt" "$outdir/js_limited.txt"
     fi
 
     info "Downloading $js_count JavaScript files (parallel)..."
@@ -34,19 +34,20 @@ js_step() {
 
         (
             # Create unique filename: domain_hash_basename
-            local domain basename hash filename
-            domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
-            basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
-            hash=$(echo "$js_url" | md5sum | cut -c1-8)
-            filename="${domain}_${hash}_${basename}"
+            local js_domain js_basename js_hash js_filename
+            js_domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
+            js_basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
+            # Ensure .js extension so find -name "*.js" picks it up
+            [[ "$js_basename" != *.* ]] && js_basename="${js_basename:-index}.js"
+            js_hash=$(echo "$js_url" | md5sum | cut -c1-8)
+            js_filename="${js_domain}_${js_hash}_${js_basename}"
 
-            # Download only — no prettier here
-            curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$filename" 2>/dev/null
+            curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$js_filename" 2>/dev/null
         ) &
 
         # Limit parallel jobs
         [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n 2>/dev/null
-    done < "$outdir/js_limited.txt"
+    done < "$js_input"
     wait_jobs "js-download"
 
     # Count downloaded files
@@ -54,8 +55,7 @@ js_step() {
     downloaded=$(find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | wc -l)
     ok "Downloaded $downloaded JavaScript files"
 
-
-    # Check for source maps
+    # Check for source maps (populated by categorize_step)
     info "Checking for source maps..."
     if [[ -s "$outdir/categorized/sourcemaps.txt" ]]; then
         local map_count
@@ -64,21 +64,42 @@ js_step() {
         cp "$outdir/categorized/sourcemaps.txt" "$outdir/js/analysis/sourcemaps.txt"
     fi
 
-    # Extract endpoints with jsluice (preferred, faster)
+    # Extract endpoints and secrets with jsluice (parallel)
     info "Extracting endpoints and secrets..."
     if command -v jsluice >/dev/null 2>&1; then
         info "Running jsluice..."
-        find "$outdir/js/files" -name "*.js" -size +0 -exec jsluice urls {} \; 2>/dev/null \
+
+        find "$outdir/js/files" -name "*.js" -size +0 -print0 2>/dev/null \
+            | xargs -0 -P "$MAX_PARALLEL" -I{} jsluice urls {} 2>/dev/null \
             | jq -r '.url // empty' 2>/dev/null \
             | sort -u > "$outdir/js/analysis/jsluice_urls.txt"
 
-        find "$outdir/js/files" -name "*.js" -size +0 -exec jsluice secrets {} \; 2>/dev/null \
+        find "$outdir/js/files" -name "*.js" -size +0 -print0 2>/dev/null \
+            | xargs -0 -P "$MAX_PARALLEL" -I{} jsluice secrets {} 2>/dev/null \
             > "$outdir/js/analysis/jsluice_secrets.txt"
 
         [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]] && rm -f "$outdir/js/analysis/jsluice_urls.txt"
-        [[ ! -s "$outdir/js/analysis/jsluice_secrets.txt" ]] && rm -f "$outdir/js/analysis/jsluice_secrets.txt"
 
-        ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) URLs"
+        if [[ -s "$outdir/js/analysis/jsluice_secrets.txt" ]]; then
+            local jsluice_sec
+            jsluice_sec=$(wc -l < "$outdir/js/analysis/jsluice_secrets.txt")
+            warn "jsluice: $jsluice_sec potential secrets found"
+        else
+            rm -f "$outdir/js/analysis/jsluice_secrets.txt"
+        fi
+
+        # Scope-filter jsluice URLs to target domain
+        if [[ -n "$domain" && -s "$outdir/js/analysis/jsluice_urls.txt" ]]; then
+            local escaped_domain
+            escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
+            grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" \
+                "$outdir/js/analysis/jsluice_urls.txt" \
+                | sort -u > "$outdir/js/analysis/jsluice_urls_scope.txt"
+            mv "$outdir/js/analysis/jsluice_urls_scope.txt" "$outdir/js/analysis/jsluice_urls.txt"
+            [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]] && rm -f "$outdir/js/analysis/jsluice_urls.txt"
+        fi
+
+        ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) in-scope URLs"
     fi
 
     # Extract endpoints with LinkFinder (parallel)
@@ -127,8 +148,8 @@ js_step() {
         info "Running JShunter (JWT/Firebase/GraphQL/params)..."
         local jh_raw="$outdir/js/analysis/jshunter_raw.json"
 
-        # Pass 1: JSON mode — JWT, Firebase, GraphQL (stdout is JSON, -o writes plain text so avoid it)
-        jshunter -l "$outdir/js_limited.txt" \
+        # Pass 1: JSON mode — JWT, Firebase, GraphQL
+        jshunter -l "$js_input" \
             -j -fo -q -k \
             -t "$threads" -R 100 -T 30 -y 2 \
             -H "$HEADER" \
@@ -136,7 +157,6 @@ js_step() {
             2>/dev/null > "$jh_raw"
 
         if [[ -s "$jh_raw" ]]; then
-            # jq -s slurps multiple JSON objects (one per URL) into array
             jq -rs '[.[].matches["JWT Token"]? | arrays | .[]] | unique[]' \
                 "$jh_raw" 2>/dev/null | sort -u > "$outdir/js/analysis/jshunter_jwt.txt"
             jq -rs '[.[] | .matches | ((.["Firebase"]? // []), (.["Firebase Url"]? // [])) | .[]] | unique[]' \
@@ -147,8 +167,8 @@ js_step() {
         fi
         rm -f "$jh_raw"
 
-        # Pass 2: plain text — hidden params (-P always prints to stdout, ignores -j)
-        jshunter -l "$outdir/js_limited.txt" \
+        # Pass 2: plain text — hidden params
+        jshunter -l "$js_input" \
             -fo -q -k \
             -t "$threads" -R 100 -T 30 -y 2 \
             -H "$HEADER" \

@@ -2,8 +2,8 @@
 # shellcheck shell=bash
 
 # Blacklist extensions (customize as needed)
-BLACKLIST="png,jpg,gif,jpeg,css,tif,tiff,ttf,woff,woff2,ico,svg,webp,mp4,mp3,avi,mov"
-BLACKLIST_REGEX="\.(png|jpg|gif|jpeg|css|tif|tiff|ttf|woff|woff2|ico|svg|webp|mp4|mp3|avi|mov)(\?|$)"
+BLACKLIST="png,jpg,gif,jpeg,css,tif,tiff,ttf,woff,woff2,ico,svg,webp,mp4,mp3,avi,mov,eot,cur,otf,wav,ogg,flac"
+BLACKLIST_REGEX="\.(png|jpg|gif|jpeg|css|tif|tiff|ttf|woff|woff2|ico|svg|webp|mp4|mp3|avi|mov|eot|cur|otf|wav|ogg|flac)(\?|$)"
 
 urls_step() {
     local outdir="$1" threads="${2:-50}" domain="$3"
@@ -32,7 +32,7 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_GAU"; then
             info "Running gau"
-            { grep -oP 'https?://\K[^/]+' "$outdir/clean_httpx.txt" | sort -u \
+            { awk -F/ '/^https?:/{split($3, a, ":"); print a[1]}' "$outdir/clean_httpx.txt" | sort -u \
                 | gau --subs --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
                 | sort -u > "$tmpdir/gau.txt"; } || true &
         else
@@ -41,6 +41,10 @@ urls_step() {
 
         wait_jobs "passive-urls"
     )
+
+    info "waybackurls: $(wc -l < "$tmpdir/waybackurls.txt" 2>/dev/null || echo 0) URLs"
+    info "waymore: $(wc -l < "$tmpdir/waymore.txt" 2>/dev/null || echo 0) URLs"
+    info "gau: $(wc -l < "$tmpdir/gau.txt" 2>/dev/null || echo 0) URLs"
 
     # Active crawling (parallel)
     (
@@ -63,7 +67,8 @@ urls_step() {
                     -c "$threads" -d 2 \
                     --blacklist "$BLACKLIST_REGEX" \
                     -q -o "$gs_out" 2>/dev/null
-                grep -hoE 'https?://[^ "]+' "$gs_out"/* 2>/dev/null | sort -u > "$tmpdir/gospider.txt"
+                find "$gs_out" -type f -exec grep -hoE 'https?://[^ "]+' {} + 2>/dev/null \
+                    | sort -u > "$tmpdir/gospider.txt"
                 rm -rf "$gs_out"
             ) &
         else
@@ -73,18 +78,19 @@ urls_step() {
         wait_jobs "active-urls"
     )
 
-    # Combine all URLs
-    sort -u "$tmpdir"/*.txt -o "$tmpdir/all_urls.txt" 2>/dev/null
+    info "katana: $(wc -l < "$tmpdir/katana.txt" 2>/dev/null || echo 0) URLs"
+    info "gospider: $(wc -l < "$tmpdir/gospider.txt" 2>/dev/null || echo 0) URLs"
 
-    # Scope filtering
+    # Combine + scope filter in single pipeline
     if [[ -n "$domain" ]]; then
         local escaped_domain
         escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
-        grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" "$tmpdir/all_urls.txt" \
-            | sort -u > "$outdir/urls.txt"
+        sort -u "$tmpdir"/*.txt 2>/dev/null \
+            | grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" \
+            > "$outdir/urls.txt"
         info "Filtered to $(wc -l < "$outdir/urls.txt") in-scope URLs"
     else
-        cp "$tmpdir/all_urls.txt" "$outdir/urls.txt"
+        sort -u "$tmpdir"/*.txt 2>/dev/null > "$outdir/urls.txt"
     fi
 
     rm -rf "$tmpdir"
@@ -93,7 +99,7 @@ urls_step() {
 
     # Optimize with uro
     info "Optimizing URLs with uro..."
-    uro -i "$outdir/urls.txt" -o "$outdir/uro.txt" 2>/dev/null
+    uro -i "$outdir/urls.txt" -o "$outdir/urls_optimized.txt" 2>/dev/null
 
-    ok "Optimized to $(wc -l < "$outdir/uro.txt" 2>/dev/null || echo 0) URLs"
+    ok "Optimized to $(wc -l < "$outdir/urls_optimized.txt" 2>/dev/null || echo 0) URLs"
 }

@@ -105,8 +105,8 @@ resume_info() {
       warn "Resume: subdomains marked complete but subdomains.txt is empty/missing"
       warnings=$((warnings + 1))
     fi
-    if is_completed "probe" && [[ ! -s "$outdir/httpx_pretty.json" ]]; then
-      warn "Resume: probe marked complete but httpx_pretty.json is empty/missing"
+    if is_completed "probe" && [[ ! -s "$outdir/clean_httpx.txt" ]]; then
+      warn "Resume: probe marked complete but clean_httpx.txt is empty/missing"
       warnings=$((warnings + 1))
     fi
     if is_completed "urls" && [[ ! -s "$outdir/urls.txt" ]]; then
@@ -174,11 +174,6 @@ set_default_config() {
   export CHAOS_PDCP_API_KEY="${CHAOS_PDCP_API_KEY:-}"
   export ENABLE_RECURSIVE_ENUM="${ENABLE_RECURSIVE_ENUM:-true}"
   export RECURSIVE_ENUM_MAX_ZONES="${RECURSIVE_ENUM_MAX_ZONES:-5}"
-
-  # Probing
-  export HTTPX_PORTS="${HTTPX_PORTS:-80,443,8080,8443,8000,3000,8888,9090,4443,5000}"
-  export ENABLE_VHOST="${ENABLE_VHOST:-true}"
-  export VHOST_MAX_IPS="${VHOST_MAX_IPS:-5}"
 
   # Permutation tools
   export ENABLE_ALTERX="${ENABLE_ALTERX:-true}"

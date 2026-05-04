@@ -27,7 +27,7 @@ lib/
   utils.sh           # Utilities (ensure_dir, prompt_yn, run)
 modules/
   subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos) + recursive enum
-  probing.sh         # HTTP probing with httpx, outputs JSON + clean URL list
+  probing.sh         # HTTP probing with httpx, outputs httpx.txt + clean_httpx.txt
   ports.sh           # Port scanning with rustscan, categorized port lists
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
@@ -42,7 +42,7 @@ modules/
 ### Pipeline Flow
 
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
-2. **probe_step**: httpx probing on configurable ports, generates `httpx_pretty.json` and `clean_httpx.txt`; extracts `cdn_hosts.txt` and `shared_ips.txt`; optional ffuf vhost sweep on shared IPs
+2. **probe_step**: httpx probing (80/443 + common ports), generates `clean_httpx.txt` (URL list) and `httpx.txt` (human-readable)
 3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
 4. **ports_step** (optional): rustscan scan on categorized ports, httpx probe results
 5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
@@ -79,9 +79,6 @@ modules/
 - `ENABLE_TAKEOVER`: Enable subdomain takeover detection (default: true)
 - `ENABLE_SCREENSHOTS`: Enable screenshot capture (default: true)
 - `ENABLE_JSHUNTER`: Enable JShunter JS analysis (JWT/Firebase/GraphQL/params, default: true)
-- `HTTPX_PORTS`: Ports probed by httpx (default: `80,443,8080,8443,8000,3000,8888,9090,4443,5000`)
-- `ENABLE_VHOST`: Enable ffuf vhost sweep on shared IPs (default: true, requires ffuf)
-- `VHOST_MAX_IPS`: Max shared IPs to run vhost sweep against (default: 5)
 - `ENABLE_CHAOS`: Enable Chaos dataset source (default: true, requires `CHAOS_PDCP_API_KEY`)
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
