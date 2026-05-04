@@ -13,7 +13,6 @@ has_content() {
 
 report_step() {
     local outdir="$1" domain="$2" start_time="${3:-}"
-    local report_md="$outdir/report.md"
     local report_json="$outdir/report.json"
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
@@ -52,176 +51,6 @@ report_step() {
     jshunter_graphql=$(count_lines "$outdir/js/analysis/jshunter_graphql.txt")
     jshunter_params=$(count_lines "$outdir/js/analysis/jshunter_params.txt")
 
-    # Generate Markdown Report
-    cat > "$report_md" << EOF
-# Bug Bounty Scan Report
-
-## Scan Information
-| Field | Value |
-|-------|-------|
-| **Target** | $domain |
-| **Date** | $timestamp |
-| **Duration** | ${duration:-N/A} |
-| **Output Directory** | $outdir |
-
----
-
-## Summary
-
-| Category | Count |
-|----------|-------|
-| Subdomains Found | $subdomains_total |
-| Live Subdomains | $subdomains_live |
-| New from Permutations | $permutation_new |
-| HTTP on Non-Std Ports | $ports_open |
-| URLs Discovered | $urls_total |
-| URLs (optimized) | $urls_optimized |
-| JavaScript Files | $js_files |
-| JS Endpoints | $endpoints_found |
-| Secrets Found | $secrets_found |
-| JWT Tokens in JS | $jshunter_jwt |
-| Firebase Configs | $jshunter_firebase |
-| GraphQL Endpoints | $jshunter_graphql |
-| Hidden JS Params | $jshunter_params |
-| Potential Takeovers | $takeover_count |
-| Screenshots | $screenshots_count |
-
----
-
-## High Priority Findings
-
-EOF
-
-    # Takeover section
-    if [[ $takeover_count -gt 0 ]]; then
-        echo "### Subdomain Takeovers (CRITICAL)" >> "$report_md"
-        echo '```' >> "$report_md"
-        grep '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" >> "$report_md" 2>/dev/null
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # Secrets section
-    if [[ $secrets_found -gt 0 ]]; then
-        echo "### Secrets Found (CRITICAL)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/js/analysis/trufflehog.txt" >> "$report_md" 2>/dev/null
-        [[ $secrets_found -gt 20 ]] && echo "... and $((secrets_found - 20)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # Firebase findings
-    if [[ $jshunter_firebase -gt 0 ]]; then
-        echo "### Firebase Configs Found (CRITICAL)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/js/analysis/jshunter_firebase.txt" >> "$report_md" 2>/dev/null
-        [[ $jshunter_firebase -gt 20 ]] && echo "... and $((jshunter_firebase - 20)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # JWT tokens
-    if [[ $jshunter_jwt -gt 0 ]]; then
-        echo "### JWT Tokens in JavaScript (HIGH)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -10 "$outdir/js/analysis/jshunter_jwt.txt" >> "$report_md" 2>/dev/null
-        [[ $jshunter_jwt -gt 10 ]] && echo "... and $((jshunter_jwt - 10)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # GraphQL endpoints
-    if [[ $jshunter_graphql -gt 0 ]]; then
-        echo "### GraphQL Endpoints Found (MEDIUM)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/js/analysis/jshunter_graphql.txt" >> "$report_md" 2>/dev/null
-        [[ $jshunter_graphql -gt 20 ]] && echo "... and $((jshunter_graphql - 20)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # Source maps warning
-    if has_content "$outdir/js/analysis/sourcemaps.txt"; then
-        local map_count
-        map_count=$(count_lines "$outdir/js/analysis/sourcemaps.txt")
-        echo "### Source Maps Found (may expose source code)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -10 "$outdir/js/analysis/sourcemaps.txt" >> "$report_md" 2>/dev/null
-        [[ $map_count -gt 10 ]] && echo "... and $((map_count - 10)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-        echo >> "$report_md"
-    fi
-
-    # GF Pattern Results
-    echo "---" >> "$report_md"
-    echo >> "$report_md"
-    echo "## GF Pattern Results" >> "$report_md"
-    echo >> "$report_md"
-    echo "| Pattern | Count |" >> "$report_md"
-    echo "|---------|-------|" >> "$report_md"
-
-    for pattern in sqli xss ssrf redirect rce lfi idor ssti params debug upload cors aws php_errors; do
-        local pattern_file="$outdir/categorized/${pattern}.txt"
-        if has_content "$pattern_file"; then
-            local count
-            count=$(count_lines "$pattern_file")
-            echo "| $pattern | $count |" >> "$report_md"
-        fi
-    done
-
-    # Port scan results
-    if has_content "$outdir/ports/httpx_ports.txt"; then
-        echo >> "$report_md"
-        echo "---" >> "$report_md"
-        echo >> "$report_md"
-        echo "## Open Ports with HTTP Services" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -20 "$outdir/ports/httpx_ports.txt" >> "$report_md" 2>/dev/null
-        [[ $ports_open -gt 20 ]] && echo "... and more" >> "$report_md"
-        echo '```' >> "$report_md"
-    fi
-
-    # JS Endpoints
-    if has_content "$outdir/js/analysis/all_endpoints.txt"; then
-        echo >> "$report_md"
-        echo "---" >> "$report_md"
-        echo >> "$report_md"
-        echo "## JavaScript Endpoints (sample)" >> "$report_md"
-        echo '```' >> "$report_md"
-        head -30 "$outdir/js/analysis/all_endpoints.txt" >> "$report_md" 2>/dev/null
-        [[ $endpoints_found -gt 30 ]] && echo "... and $((endpoints_found - 30)) more" >> "$report_md"
-        echo '```' >> "$report_md"
-    fi
-
-    # File locations
-    cat >> "$report_md" << 'EOF'
-
----
-
-## Output Files
-
-| File | Description |
-|------|-------------|
-| `subdomains.txt` | All discovered subdomains |
-| `clean_httpx.txt` | Live subdomains (HTTP probe) |
-| `httpx_pretty.json` | Full HTTP probe data |
-| `urls.txt` | All discovered URLs |
-| `uro.txt` | Optimized/deduped URLs |
-| `js.txt` | JavaScript file URLs |
-| `categorized/` | URLs by vulnerability pattern |
-| `ports/` | Port scan results |
-| `js/analysis/` | JS analysis results |
-| `permutations/` | Subdomain permutation results |
-| `takeover/` | Subdomain takeover detection results |
-| `screenshots/` | Screenshot captures (gowitness) |
-| `delta.md` | Changes since last scan |
-
----
-
-*Generated by zee-scanner*
-EOF
-
     # Generate JSON Report
     cat > "$report_json" << EOF
 {
@@ -257,7 +86,6 @@ EOF
 }
 EOF
 
-    ok "Report saved to: $report_md"
     ok "JSON report saved to: $report_json"
 
     # Print summary to stdout
@@ -274,7 +102,7 @@ EOF
     [[ $secrets_found -gt 0 ]] && echo "  ⚠ SECRETS FOUND: $secrets_found"
     [[ $screenshots_count -gt 0 ]] && echo "  Screenshots: $screenshots_count"
     echo "════════════════════════════════════════════════════════════"
-    echo "  Report: $report_md"
+    echo "  Report: $report_json"
     echo "════════════════════════════════════════════════════════════"
     echo
 }
