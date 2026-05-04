@@ -32,8 +32,8 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_GAU"; then
             info "Running gau"
-            { awk -F/ '/^https?:/{split($3, a, ":"); print a[1]}' "$outdir/clean_httpx.txt" | sort -u \
-                | gau --subs --threads "$threads" --blacklist "$BLACKLIST" 2>/dev/null \
+            { echo "$domain" \
+                | gau --subs --threads "$threads" --timeout 15 --blacklist "$BLACKLIST" 2>/dev/null \
                 | sort -u > "$tmpdir/gau.txt"; } || true &
         else
             touch "$tmpdir/gau.txt"
