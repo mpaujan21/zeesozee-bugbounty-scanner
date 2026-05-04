@@ -175,7 +175,7 @@ fi
 
 next_step "HTTP Probing"
 if ! is_completed "probe"; then
-    probe_step "$(pwd)" "$THREADS" && mark_completed "probe"
+    probe_step "$(pwd)" "$THREADS" "$DOMAIN" && mark_completed "probe"
 else
     info "Skipping probing (already completed)"
 fi

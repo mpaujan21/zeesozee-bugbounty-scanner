@@ -175,6 +175,11 @@ set_default_config() {
   export ENABLE_RECURSIVE_ENUM="${ENABLE_RECURSIVE_ENUM:-true}"
   export RECURSIVE_ENUM_MAX_ZONES="${RECURSIVE_ENUM_MAX_ZONES:-5}"
 
+  # Probing
+  export HTTPX_PORTS="${HTTPX_PORTS:-80,443,8080,8443,8000,3000,8888,9090,4443,5000}"
+  export ENABLE_VHOST="${ENABLE_VHOST:-true}"
+  export VHOST_MAX_IPS="${VHOST_MAX_IPS:-5}"
+
   # Permutation tools
   export ENABLE_ALTERX="${ENABLE_ALTERX:-true}"
   export ENABLE_DNSGEN="${ENABLE_DNSGEN:-true}"

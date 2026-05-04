@@ -42,7 +42,7 @@ modules/
 ### Pipeline Flow
 
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
-2. **probe_step**: httpx probing, generates `httpx.json` and `clean_httpx.txt`
+2. **probe_step**: httpx probing on configurable ports, generates `httpx_pretty.json` and `clean_httpx.txt`; extracts `cdn_hosts.txt` and `shared_ips.txt`; optional ffuf vhost sweep on shared IPs
 3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
 4. **ports_step** (optional): rustscan scan on categorized ports, httpx probe results
 5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
@@ -79,6 +79,9 @@ modules/
 - `ENABLE_TAKEOVER`: Enable subdomain takeover detection (default: true)
 - `ENABLE_SCREENSHOTS`: Enable screenshot capture (default: true)
 - `ENABLE_JSHUNTER`: Enable JShunter JS analysis (JWT/Firebase/GraphQL/params, default: true)
+- `HTTPX_PORTS`: Ports probed by httpx (default: `80,443,8080,8443,8000,3000,8888,9090,4443,5000`)
+- `ENABLE_VHOST`: Enable ffuf vhost sweep on shared IPs (default: true, requires ffuf)
+- `VHOST_MAX_IPS`: Max shared IPs to run vhost sweep against (default: 5)
 - `ENABLE_CHAOS`: Enable Chaos dataset source (default: true, requires `CHAOS_PDCP_API_KEY`)
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
@@ -87,7 +90,7 @@ modules/
 
 Enumeration: subfinder, assetfinder, findomain, amass, chaos, jq
 DNS: dnsgen, dnsx, alterx, gotator
-Probing: httpx, rustscan
+Probing: httpx, rustscan, ffuf (optional, for vhost)
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter
