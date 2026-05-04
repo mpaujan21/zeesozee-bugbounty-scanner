@@ -140,7 +140,7 @@ subdomains_step() {
             local rectmp i=0
             rectmp=$(mktemp -d)
             for zone in "${zones[@]}"; do
-                subfinder -all -silent -d "$zone" 2>/dev/null \
+                subfinder -silent -d "$zone" 2>/dev/null \
                     | grep -v "^$" | sort -u > "$rectmp/rec_${i}.txt" &
                 i=$((i + 1))
             done
