@@ -141,7 +141,7 @@ subdomains_step() {
             rectmp=$(mktemp -d)
             for zone in "${zones[@]}"; do
                 subfinder -silent -d "$zone" 2>/dev/null \
-                    | grep -v "^$" | sort -u > "$rectmp/rec_${i}.txt" &
+                    | grep -v "^$" | sort -u > "$rectmp/rec_${i}.txt" || true &
                 i=$((i + 1))
             done
             wait_jobs "recursive_enum"
