@@ -40,13 +40,8 @@ js_step() {
             hash=$(echo "$js_url" | md5sum | cut -c1-8)
             filename="${domain}_${hash}_${basename}"
 
-            # Download
+            # Download only — no prettier here
             curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$filename" 2>/dev/null
-
-            # Beautify if file exists and is not empty
-            if [[ -s "$outdir/js/files/$filename" ]]; then
-                prettier --write "$outdir/js/files/$filename" >/dev/null 2>&1 || true
-            fi
         ) &
 
         # Limit parallel jobs
@@ -58,6 +53,7 @@ js_step() {
     local downloaded
     downloaded=$(find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | wc -l)
     ok "Downloaded $downloaded JavaScript files"
+
 
     # Check for source maps
     info "Checking for source maps..."
@@ -126,12 +122,55 @@ js_step() {
         ok "No verified secrets found"
     fi
 
+    # JShunter — JWT tokens, Firebase configs, GraphQL endpoints, hidden params
+    if [[ "${ENABLE_JSHUNTER:-true}" == "true" ]] && command -v jshunter >/dev/null 2>&1; then
+        info "Running JShunter (JWT/Firebase/GraphQL/params)..."
+        local jh_raw="$outdir/js/analysis/jshunter_raw.json"
+
+        # Pass 1: JSON mode — JWT, Firebase, GraphQL (stdout is JSON, -o writes plain text so avoid it)
+        jshunter -l "$outdir/js_limited.txt" \
+            -j -fo -q -k \
+            -t "$threads" -R 100 -T 30 -y 2 \
+            -H "$HEADER" \
+            -x -F -g \
+            2>/dev/null > "$jh_raw"
+
+        if [[ -s "$jh_raw" ]]; then
+            # jq -s slurps multiple JSON objects (one per URL) into array
+            jq -rs '[.[].matches["JWT Token"]? | arrays | .[]] | unique[]' \
+                "$jh_raw" 2>/dev/null | sort -u > "$outdir/js/analysis/jshunter_jwt.txt"
+            jq -rs '[.[] | .matches | ((.["Firebase"]? // []), (.["Firebase Url"]? // [])) | .[]] | unique[]' \
+                "$jh_raw" 2>/dev/null | sort -u > "$outdir/js/analysis/jshunter_firebase.txt"
+            jq -rs '[.[].matches | to_entries[] | select(.key | startswith("GraphQL")) | .value[]] | unique[]' \
+                "$jh_raw" 2>/dev/null | sort -u > "$outdir/js/analysis/jshunter_graphql.txt"
+            find "$outdir/js/analysis" -name "jshunter_*.txt" -size 0 -delete 2>/dev/null
+        fi
+        rm -f "$jh_raw"
+
+        # Pass 2: plain text — hidden params (-P always prints to stdout, ignores -j)
+        jshunter -l "$outdir/js_limited.txt" \
+            -fo -q -k \
+            -t "$threads" -R 100 -T 30 -y 2 \
+            -H "$HEADER" \
+            -P \
+            2>/dev/null | sort -u > "$outdir/js/analysis/jshunter_params.txt"
+        [[ ! -s "$outdir/js/analysis/jshunter_params.txt" ]] && rm -f "$outdir/js/analysis/jshunter_params.txt"
+
+        local jh_jwt jh_fb jh_gql jh_params
+        jh_jwt=$(wc -l < "$outdir/js/analysis/jshunter_jwt.txt" 2>/dev/null || echo 0)
+        jh_fb=$(wc -l < "$outdir/js/analysis/jshunter_firebase.txt" 2>/dev/null || echo 0)
+        jh_gql=$(wc -l < "$outdir/js/analysis/jshunter_graphql.txt" 2>/dev/null || echo 0)
+        jh_params=$(wc -l < "$outdir/js/analysis/jshunter_params.txt" 2>/dev/null || echo 0)
+        ok "JShunter: ${jh_jwt} JWT, ${jh_fb} Firebase, ${jh_gql} GraphQL, ${jh_params} hidden params"
+        [[ $jh_fb -gt 0 ]] && warn "Firebase configs found — verify DB rules / API key scope!"
+    fi
+
     # Combine all discovered endpoints
     cat "$outdir/js/analysis/jsluice_urls.txt" \
         "$outdir/js/analysis/linkfinder.txt" 2>/dev/null \
         | sort -u > "$outdir/js/analysis/all_endpoints.txt"
     [[ ! -s "$outdir/js/analysis/all_endpoints.txt" ]] && rm -f "$outdir/js/analysis/all_endpoints.txt"
-    [[ ! -s "$outdir/js/analysis/linkfinder.txt" ]] && rm -f "$outdir/js/analysis/linkfinder.txt"
+    rm -f "$outdir/js/analysis/jsluice_urls.txt" "$outdir/js/analysis/linkfinder.txt"
 
     ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
 

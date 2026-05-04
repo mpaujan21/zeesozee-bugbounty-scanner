@@ -26,7 +26,7 @@ lib/
   colors.sh          # Terminal output helpers (info, ok, warn, err, banner)
   utils.sh           # Utilities (ensure_dir, prompt_yn, run)
 modules/
-  subdomains.sh      # Passive enumeration (subfinder, assetfinder, findomain, amass, crt.sh)
+  subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos) + recursive enum
   probing.sh         # HTTP probing with httpx, outputs JSON + clean URL list
   ports.sh           # Port scanning with rustscan, categorized port lists
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
@@ -72,18 +72,23 @@ modules/
 - `SCAN_THREADS`: Default thread count
 - `TOOLS`: Path to supporting utilities like LinkFinder
 - `HEADER`: Custom HTTP header for probing tools
+- `CHAOS_PDCP_API_KEY`: ProjectDiscovery API key for Chaos dataset (optional, skipped if unset)
 
 ## Configuration Toggles
 
 - `ENABLE_TAKEOVER`: Enable subdomain takeover detection (default: true)
 - `ENABLE_SCREENSHOTS`: Enable screenshot capture (default: true)
+- `ENABLE_JSHUNTER`: Enable JShunter JS analysis (JWT/Firebase/GraphQL/params, default: true)
+- `ENABLE_CHAOS`: Enable Chaos dataset source (default: true, requires `CHAOS_PDCP_API_KEY`)
+- `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
+- `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
 
 ## Required External Tools
 
-Enumeration: subfinder, assetfinder, findomain, amass, curl, jq
+Enumeration: subfinder, assetfinder, findomain, amass, chaos, jq
 DNS: dnsgen, dnsx, alterx, gotator
 Probing: httpx, rustscan
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
-JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder
+JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter
 Optional: gowitness (screenshots)

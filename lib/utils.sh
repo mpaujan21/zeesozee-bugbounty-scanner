@@ -170,7 +170,10 @@ set_default_config() {
   export ENABLE_ASSETFINDER="${ENABLE_ASSETFINDER:-true}"
   export ENABLE_FINDOMAIN="${ENABLE_FINDOMAIN:-true}"
   export ENABLE_AMASS="${ENABLE_AMASS:-true}"
-  export ENABLE_CRTSH="${ENABLE_CRTSH:-true}"
+  export ENABLE_CHAOS="${ENABLE_CHAOS:-true}"
+  export CHAOS_PDCP_API_KEY="${CHAOS_PDCP_API_KEY:-}"
+  export ENABLE_RECURSIVE_ENUM="${ENABLE_RECURSIVE_ENUM:-true}"
+  export RECURSIVE_ENUM_MAX_ZONES="${RECURSIVE_ENUM_MAX_ZONES:-5}"
 
   # Permutation tools
   export ENABLE_ALTERX="${ENABLE_ALTERX:-true}"
@@ -187,6 +190,7 @@ set_default_config() {
   # Feature toggles
   export ENABLE_TAKEOVER="${ENABLE_TAKEOVER:-true}"
   export ENABLE_SCREENSHOTS="${ENABLE_SCREENSHOTS:-true}"
+  export ENABLE_JSHUNTER="${ENABLE_JSHUNTER:-true}"
 
   # Delta/snapshot settings
   export MAX_SNAPSHOTS="${MAX_SNAPSHOTS:-5}"

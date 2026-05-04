@@ -47,6 +47,10 @@ report_step() {
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
+    jshunter_jwt=$(count_lines "$outdir/js/analysis/jshunter_jwt.txt")
+    jshunter_firebase=$(count_lines "$outdir/js/analysis/jshunter_firebase.txt")
+    jshunter_graphql=$(count_lines "$outdir/js/analysis/jshunter_graphql.txt")
+    jshunter_params=$(count_lines "$outdir/js/analysis/jshunter_params.txt")
 
     # Generate Markdown Report
     cat > "$report_md" << EOF
@@ -75,6 +79,10 @@ report_step() {
 | JavaScript Files | $js_files |
 | JS Endpoints | $endpoints_found |
 | Secrets Found | $secrets_found |
+| JWT Tokens in JS | $jshunter_jwt |
+| Firebase Configs | $jshunter_firebase |
+| GraphQL Endpoints | $jshunter_graphql |
+| Hidden JS Params | $jshunter_params |
 | Potential Takeovers | $takeover_count |
 | Screenshots | $screenshots_count |
 
@@ -99,6 +107,36 @@ EOF
         echo '```' >> "$report_md"
         head -20 "$outdir/js/analysis/trufflehog.txt" >> "$report_md" 2>/dev/null
         [[ $secrets_found -gt 20 ]] && echo "... and $((secrets_found - 20)) more" >> "$report_md"
+        echo '```' >> "$report_md"
+        echo >> "$report_md"
+    fi
+
+    # Firebase findings
+    if [[ $jshunter_firebase -gt 0 ]]; then
+        echo "### Firebase Configs Found (CRITICAL)" >> "$report_md"
+        echo '```' >> "$report_md"
+        head -20 "$outdir/js/analysis/jshunter_firebase.txt" >> "$report_md" 2>/dev/null
+        [[ $jshunter_firebase -gt 20 ]] && echo "... and $((jshunter_firebase - 20)) more" >> "$report_md"
+        echo '```' >> "$report_md"
+        echo >> "$report_md"
+    fi
+
+    # JWT tokens
+    if [[ $jshunter_jwt -gt 0 ]]; then
+        echo "### JWT Tokens in JavaScript (HIGH)" >> "$report_md"
+        echo '```' >> "$report_md"
+        head -10 "$outdir/js/analysis/jshunter_jwt.txt" >> "$report_md" 2>/dev/null
+        [[ $jshunter_jwt -gt 10 ]] && echo "... and $((jshunter_jwt - 10)) more" >> "$report_md"
+        echo '```' >> "$report_md"
+        echo >> "$report_md"
+    fi
+
+    # GraphQL endpoints
+    if [[ $jshunter_graphql -gt 0 ]]; then
+        echo "### GraphQL Endpoints Found (MEDIUM)" >> "$report_md"
+        echo '```' >> "$report_md"
+        head -20 "$outdir/js/analysis/jshunter_graphql.txt" >> "$report_md" 2>/dev/null
+        [[ $jshunter_graphql -gt 20 ]] && echo "... and $((jshunter_graphql - 20)) more" >> "$report_md"
         echo '```' >> "$report_md"
         echo >> "$report_md"
     fi
@@ -203,11 +241,17 @@ EOF
     "js_files": $js_files,
     "endpoints_found": $endpoints_found,
     "secrets_found": $secrets_found,
+    "jwt_tokens": $jshunter_jwt,
+    "firebase_configs": $jshunter_firebase,
+    "graphql_endpoints": $jshunter_graphql,
+    "hidden_params": $jshunter_params,
     "takeover_count": $takeover_count,
     "screenshots_count": $screenshots_count
   },
   "high_priority": {
     "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
+    "has_firebase": $([ "$jshunter_firebase" -gt 0 ] && echo "true" || echo "false"),
+    "has_jwt": $([ "$jshunter_jwt" -gt 0 ] && echo "true" || echo "false"),
     "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false")
   }
 }

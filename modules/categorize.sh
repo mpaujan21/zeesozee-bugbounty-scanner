@@ -15,8 +15,8 @@ categorize_step() {
 
     # Extract URL components with unfurl
     info "Extracting URL components..."
-    unfurl --unique keypairs < "$outdir/urls.txt" > "$outdir/categorized/keypairs.txt" 2>/dev/null
-    unfurl --unique format %d%p < "$outdir/urls.txt" > "$outdir/categorized/paths.txt" 2>/dev/null
+    unfurl --unique keypairs < "$outdir/urls.txt" | sort -u > "$outdir/categorized/keypairs.txt" 2>/dev/null
+    unfurl --unique format %d%p < "$outdir/urls.txt" | sort -u > "$outdir/categorized/paths.txt" 2>/dev/null
 
     # Extract JS and JSON file URLs
     info "Extracting JS and JSON file URLs..."
