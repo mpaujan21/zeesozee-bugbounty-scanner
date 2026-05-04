@@ -40,3 +40,4 @@ scan-data/
 # Local secrets
 .env
 .env.*
+!.env.example

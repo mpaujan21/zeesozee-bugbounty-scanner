@@ -102,6 +102,14 @@ else
     info "No config file found, using defaults"
 fi
 
+# Load secrets from .env (not tracked in git)
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -o allexport
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/.env"
+    set +o allexport
+fi
+
 # Validate inputs
 info "Validating inputs..."
 validate_foldername "$FOLDERNAME" || exit 1
