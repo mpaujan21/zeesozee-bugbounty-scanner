@@ -4,15 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, port scanning, URL discovery, JavaScript analysis, subdomain takeover detection, and screenshot capture.
+Zee Scanner is a bash-based bug bounty reconnaissance automation tool that orchestrates multiple security tools in a pipeline. It automates subdomain enumeration, probing, URL discovery, JavaScript analysis, subdomain takeover detection, and screenshot capture.
 
 ## Running the Scanner
 
 ```bash
-./scan.sh <foldername> <domain> [--threads N] [--yes-js y|n] [--yes-ports y|n] [--yes-screenshots y|n]
+./scan.sh <foldername> <domain> [--threads N] [--yes-js y|n] [--yes-screenshots y|n]
 ```
 
-Example: `./scan.sh acme acme.com --threads 80 --yes-js n --yes-ports y --yes-screenshots y`
+Example: `./scan.sh acme acme.com --threads 80 --yes-js n --yes-screenshots y`
 
 Output is written to `$HACK/programs/<foldername>` (defaults to `~/HACK/programs/<foldername>`).
 
@@ -28,7 +28,6 @@ lib/
 modules/
   subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos) + recursive enum
   probing.sh         # HTTP probing with httpx, outputs httpx.txt + clean_httpx.txt
-  ports.sh           # Port scanning with rustscan, categorized port lists
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
   categorize.sh      # GF pattern matching + unfurl extraction
@@ -44,14 +43,13 @@ modules/
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
 2. **probe_step**: httpx probing (80/443 + common ports), generates `clean_httpx.txt` (URL list) and `httpx.txt` (human-readable)
 3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
-4. **ports_step** (optional): rustscan scan on categorized ports, httpx probe results
-5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
-6. **permutation_step**: Generate and resolve permutations, append new discoveries
-7. **urls_step**: Passive + active URL collection, uro optimization
-8. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
-9. **js_step** (optional): Download JS, extract endpoints/secrets
-10. **report_step**: Generate `report.md` and `report.json`
-11. **delta_step**: Compare against previous scan, generate `delta.md` and `delta.json`
+4. **screenshots_step** (optional): gowitness screenshot capture of live hosts
+5. **permutation_step**: Generate and resolve permutations, append new discoveries
+6. **urls_step**: Passive + active URL collection, uro optimization
+7. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
+8. **js_step** (optional): Download JS, extract endpoints/secrets
+9. **report_step**: Generate `report.md` and `report.json`
+10. **delta_step**: Compare against previous scan, generate `delta.md` and `delta.json`
 
 ### Key Patterns
 
@@ -87,7 +85,7 @@ modules/
 
 Enumeration: subfinder, assetfinder, findomain, amass, chaos, jq
 DNS: dnsgen, dnsx, alterx, gotator
-Probing: httpx, rustscan, ffuf (optional, for vhost)
+Probing: httpx, ffuf (optional, for vhost)
 URLs: waybackurls, waymore, gau, katana, gospider, uro
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter

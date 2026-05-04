@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing ports permutation urls categorize js report takeover screenshots delta; do
+for mod in subdomains probing permutation urls categorize js report takeover screenshots delta; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -28,7 +28,6 @@ ${BOLD}Required Arguments:${RESET}
 ${BOLD}Options:${RESET}
   --threads N       Number of concurrent threads (default: 50, range: 1-1000)
   --yes-js y|n      Enable JavaScript analysis (interactive if not specified)
-  --yes-ports y|n   Enable port scanning (interactive if not specified)
   --yes-screenshots y|n  Enable screenshot capture with gowitness (interactive if not specified)
   --config FILE     Load configuration from FILE (default: scan.conf or ~/.zee-scanner.conf)
   --force-restart   Clear previous scan state and restart from beginning
@@ -36,7 +35,7 @@ ${BOLD}Options:${RESET}
 
 ${BOLD}Examples:${RESET}
   $0 acme acme.com
-  $0 acme acme.com --threads 80 --yes-js y --yes-ports n
+  $0 acme acme.com --threads 80 --yes-js y
   $0 bugcrowd bugcrowd.com --threads 100
 
 ${BOLD}Environment Variables:${RESET}
@@ -59,7 +58,7 @@ fi
 
 # args + flags
 if [[ $# -lt 2 ]]; then
-    err "Usage: $0 <foldername> <domain> [--yes-js y|n] [--yes-ports y|n] [--threads N]"
+    err "Usage: $0 <foldername> <domain> [--yes-js y|n] [--threads N]"
     echo ""
     info "Run '$0 --help' for more information"
     exit 1
@@ -67,7 +66,7 @@ fi
 
 HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/programs/$1"; DOMAIN="$2"; shift 2
 THREADS="${SCAN_THREADS:-50}"
-YES_JS="ask"; YES_PORTS="ask"; YES_SCREENSHOTS="ask"
+YES_JS="ask"; YES_SCREENSHOTS="ask"
 FORCE_RESTART=false
 CONFIG_FILE=""
 
@@ -75,7 +74,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --threads) THREADS="${2:-$THREADS}"; shift 2;;
         --yes-js) YES_JS="${2:-ask}"; shift 2;;
-        --yes-ports) YES_PORTS="${2:-ask}"; shift 2;;
         --yes-screenshots) YES_SCREENSHOTS="${2:-ask}"; shift 2;;
         --force-restart) FORCE_RESTART=true; shift;;
         --config) CONFIG_FILE="$2"; shift 2;;
@@ -134,13 +132,11 @@ fi
 
 # prompts (if not pre-answered)
 [[ "$YES_JS" == "ask" ]] && YES_JS="$(prompt_yn 'Run JS Analysis?')"
-[[ "$YES_PORTS" == "ask" ]] && YES_PORTS="$(prompt_yn 'Run Port Scanning?')"
 [[ "$YES_SCREENSHOTS" == "ask" ]] && YES_SCREENSHOTS="$(prompt_yn 'Capture Screenshots?')"
 
 # Calculate total steps based on enabled features
 TOTAL_STEPS=6  # subdomains, probe, urls, categorize, report, delta
 is_tool_enabled ENABLE_TAKEOVER && TOTAL_STEPS=$((TOTAL_STEPS + 1))
-[[ "$YES_PORTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_SCREENSHOTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_JS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 TOTAL_STEPS=$((TOTAL_STEPS + 1))  # export
@@ -189,37 +185,13 @@ if is_tool_enabled ENABLE_TAKEOVER; then
     fi
 fi
 
-# Run ports and screenshots in parallel (both depend only on clean_httpx.txt)
-_run_ports=false
-_run_screenshots=false
-
-if [[ "$YES_PORTS" == "y" ]] && ! is_completed "ports"; then
-    _run_ports=true
-elif [[ "$YES_PORTS" == "y" ]]; then
-    info "Skipping port scanning (already completed)"
-fi
-
-if [[ "$YES_SCREENSHOTS" == "y" ]] && ! is_completed "screenshots"; then
-    _run_screenshots=true
-elif [[ "$YES_SCREENSHOTS" == "y" ]]; then
-    info "Skipping screenshots (already completed)"
-fi
-
-if [[ "$_run_ports" == "true" || "$_run_screenshots" == "true" ]]; then
-    # Both get a step number even though they run in parallel
-    [[ "$YES_PORTS" == "y" ]] && next_step "Port Scanning"
-    [[ "$YES_SCREENSHOTS" == "y" ]] && next_step "Screenshot Capture"
-    if [[ "$_run_ports" == "true" ]]; then
-        ( ports_step "$(pwd)" "$THREADS" && mark_completed "ports" ) &
+if [[ "$YES_SCREENSHOTS" == "y" ]]; then
+    next_step "Screenshot Capture"
+    if ! is_completed "screenshots"; then
+        screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots"
+    else
+        info "Skipping screenshots (already completed)"
     fi
-    if [[ "$_run_screenshots" == "true" ]]; then
-        ( screenshots_step "$(pwd)" "$THREADS" && mark_completed "screenshots" ) &
-    fi
-    wait_jobs "ports+screenshots"
-else
-    # Still consume step numbers for skipped steps
-    [[ "$YES_PORTS" == "y" ]] && next_step "Port Scanning"
-    [[ "$YES_SCREENSHOTS" == "y" ]] && next_step "Screenshot Capture"
 fi
 
 # permutation_step "$(pwd)"
