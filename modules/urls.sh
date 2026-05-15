@@ -30,21 +30,11 @@ urls_step() {
             touch "$tmpdir/waymore.txt"
         fi
 
-        if is_tool_enabled "ENABLE_GAU"; then
-            info "Running gau"
-            { echo "$domain" \
-                | gau --subs --threads "$threads" --timeout 15 --blacklist "$BLACKLIST" 2>/dev/null \
-                | sort -u > "$tmpdir/gau.txt"; } || true &
-        else
-            touch "$tmpdir/gau.txt"
-        fi
-
         wait_jobs "passive-urls"
     )
 
     info "waybackurls: $(wc -l < "$tmpdir/waybackurls.txt" 2>/dev/null || echo 0) URLs"
     info "waymore: $(wc -l < "$tmpdir/waymore.txt" 2>/dev/null || echo 0) URLs"
-    info "gau: $(wc -l < "$tmpdir/gau.txt" 2>/dev/null || echo 0) URLs"
 
     # Active crawling (parallel)
     (
@@ -59,27 +49,10 @@ urls_step() {
             touch "$tmpdir/katana.txt"
         fi
 
-        if is_tool_enabled "ENABLE_GOSPIDER"; then
-            info "Running gospider"
-            (
-                local gs_out="$tmpdir/gospider_raw"
-                gospider -S "$outdir/clean_httpx.txt" \
-                    -c "$threads" -d 2 \
-                    --blacklist "$BLACKLIST_REGEX" \
-                    -q -o "$gs_out" 2>/dev/null
-                find "$gs_out" -type f -exec grep -hoE 'https?://[^ "]+' {} + 2>/dev/null \
-                    | sort -u > "$tmpdir/gospider.txt"
-                rm -rf "$gs_out"
-            ) &
-        else
-            touch "$tmpdir/gospider.txt"
-        fi
-
         wait_jobs "active-urls"
     )
 
     info "katana: $(wc -l < "$tmpdir/katana.txt" 2>/dev/null || echo 0) URLs"
-    info "gospider: $(wc -l < "$tmpdir/gospider.txt" 2>/dev/null || echo 0) URLs"
 
     # Combine + scope filter in single pipeline
     if [[ -n "$domain" ]]; then
