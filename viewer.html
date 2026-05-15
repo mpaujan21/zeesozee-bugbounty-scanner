@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zee Scanner — Results Viewer</title>
+<link rel="icon" type="image/png" href="assets/cat.png">
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e5ddd5;
+    --text: #1a1714;
+    --muted: #6e6560;
+    --accent: #d97757;
+    --accent-light: #f5ede8;
+    --green: #2a7d46;
+    --yellow: #b07d10;
+    --red: #c53030;
+    --blue: #2563a8;
+    --orange: #c96030;
+    --purple: #7c4dbe;
+    --header-bg: #1c1917;
+    --header-text: #faf9f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* Landing */
+  #landing { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 24px; background: var(--bg); }
+  #landing h1 { font-size: 30px; letter-spacing: 1px; color: var(--accent); font-weight: 700; }
+  #landing p { color: var(--muted); }
+  .drop-zone { border: 2px dashed var(--border); border-radius: 16px; padding: 48px 72px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s; background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .drop-zone:hover { border-color: var(--accent); background: var(--accent-light); box-shadow: 0 4px 16px rgba(217,119,87,.12); }
+  .drop-zone input { display: none; }
+  .drop-zone .icon { font-size: 48px; margin-bottom: 12px; }
+  .drop-zone .label { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn:hover { opacity: .88; }
+
+  /* App layout */
+  #app { display: none; }
+  header { background: var(--header-bg); border-bottom: 1px solid #2d2926; padding: 4px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 17px; color: var(--accent); letter-spacing: .5px; font-weight: 700; }
+  header .meta { color: #9c9189; font-size: 12px; }
+  header .spacer { flex: 1; }
+  header .target { font-size: 20px; font-weight: 700; color: #faf9f7; }
+
+  .alerts { padding: 0 24px; margin: 16px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .alert.red { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+  .alert.yellow { background: #fffbeb; color: var(--yellow); border: 1px solid #fde68a; }
+  .alert.purple { background: #f5f3ff; color: var(--purple); border: 1px solid #ddd6fe; }
+
+  /* Stats row */
+  .stats { display: flex; gap: 10px; padding: 16px 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 8px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,.05); text-align: center; }
+  .stat .val { font-size: 28px; font-weight: 700; line-height: 1; }
+  .stat .lbl { color: var(--muted); font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat.red .val { color: var(--red); }
+  .stat.green .val { color: var(--green); }
+  .stat.yellow .val { color: var(--yellow); }
+  .stat.blue .val { color: var(--blue); }
+  .stat.purple .val { color: var(--purple); }
+  .stat.orange .val { color: var(--orange); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 24px; margin-top: 8px; overflow-x: auto; background: var(--surface); }
+  .tab { padding: 11px 18px; cursor: pointer; color: var(--muted); font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+  /* Content */
+  .content { padding: 20px 24px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Section */
+  .section { margin-bottom: 28px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .section-title .count { background: var(--surface2); color: var(--text); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+
+  /* Table */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th { text-align: left; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  .tbl td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-family: monospace; }
+  .tbl tr:hover td { background: var(--surface); }
+  .tbl td a { color: var(--blue); text-decoration: none; }
+  .tbl td a:hover { text-decoration: underline; }
+
+  /* Code list */
+  .code-list { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto; }
+  .code-list .item { padding: 3px 0; border-bottom: 1px solid var(--border); line-height: 1.5; word-break: break-all; }
+  .code-list .item:last-child { border-bottom: none; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge.s200 { background: #dcfce7; color: var(--green); }
+  .badge.s301, .badge.s302, .badge.s303 { background: #dbeafe; color: var(--blue); }
+  .badge.s401, .badge.s403 { background: #fef9c3; color: var(--yellow); }
+  .badge.s500 { background: #fee2e2; color: var(--red); }
+  .badge.sother { background: var(--surface2); color: var(--muted); }
+
+  /* Search */
+  .search-wrap { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+  .search-wrap input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 12px; font-size: 13px; flex: 1; max-width: 360px; }
+  .search-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(217,119,87,.15); }
+  .search-wrap .results-count { color: var(--muted); font-size: 12px; }
+
+  /* Delta */
+  .delta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .delta-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .delta-card .chg { font-size: 24px; font-weight: 700; }
+  .delta-card .chg.pos { color: var(--red); }
+  .delta-card .chg.neg { color: var(--green); }
+  .delta-card .chg.zero { color: var(--muted); }
+  .delta-card .name { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  /* Secret highlight */
+  .secret-type { color: var(--orange); font-weight: 600; }
+  .secret-val { color: var(--yellow); }
+  .secret-file { color: var(--muted); font-size: 11px; }
+
+  /* Pagination */
+  .page-controls { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .page-controls button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 12px; cursor: pointer; font-size: 12px; }
+  .page-controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .page-controls button:disabled { opacity: .4; cursor: default; }
+  .page-controls .page-info { color: var(--muted); font-size: 12px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .empty { color: var(--muted); font-style: italic; padding: 12px 0; }
+  .tag { background: var(--surface2); color: var(--muted); padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px; }
+
+</style>
+</head>
+<body>
+
+<div id="landing">
+  <img src="assets/cat.png" alt="Zee Scanner" style="width:80px;height:80px;object-fit:contain;border-radius:16px">
+  <label class="drop-zone">
+    <div class="icon">📂</div>
+    <div>Click to select scan folder</div>
+    <input id="folderInput" type="file" webkitdirectory multiple style="display:none">
+  </label>
+</div>
+
+<div id="app">
+  <header>
+    <img src="assets/cat.png" alt="Zee Scanner" style="width:36px;height:36px;object-fit:contain;border-radius:6px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span class="target" id="hdrTarget">—</span>
+      <span class="meta" id="hdrMeta">—</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="resetApp()" style="padding:5px 14px;font-size:12px">↩ New Scan</button>
+  </header>
+
+  <div class="stats" id="statsBar"></div>
+
+  <div class="tabs" id="tabBar"></div>
+
+  <div class="content" id="panelsContainer"></div>
+</div>
+
+<script>
+// ── File map ──────────────────────────────────────────────────────────────────
+let fileMap = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('folderInput').addEventListener('change', async e => {
+    fileMap = {};
+    for (const f of e.target.files) {
+      const parts = f.webkitRelativePath.split('/');
+      const rel = parts.slice(1).join('/');
+      fileMap[rel] = f;
+    }
+    await buildDashboard();
+  });
+});
+
+async function loadScanDir(dirHandle) {
+  fileMap = await buildFileMapFromDir(dirHandle, '');
+  await buildDashboard();
+}
+
+async function readText(path) {
+  const f = fileMap[path];
+  if (!f) return null;
+  try { return await f.text(); } catch { return null; }
+}
+
+async function readLines(path) {
+  const t = await readText(path);
+  if (!t) return [];
+  return t.split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+async function readJSON(path) {
+  const t = await readText(path);
+  if (!t) return null;
+  try { return JSON.parse(t); } catch { return null; }
+}
+
+// ── Build dashboard ───────────────────────────────────────────────────────────
+async function buildDashboard() {
+  const [report, delta, subdomains, liveHosts, httpxRaw,
+         secretsRaw, endpoints, jwts, graphql, params,
+         keypairs, paths, catSourcemaps, jsonFiles, takeovers, cnames,
+         urlsOptimized, jsUrls] = await Promise.all([
+    readJSON('report.json'),
+    readJSON('delta.json'),
+    readLines('subdomains.txt'),
+    readLines('clean_httpx.txt'),
+    readLines('httpx.txt'),
+    readText('js/analysis/trufflehog.json'),
+    readLines('js/analysis/all_endpoints.txt'),
+    readLines('js/analysis/jshunter_jwt.txt'),
+    readLines('js/analysis/jshunter_graphql.txt'),
+    readLines('js/analysis/jshunter_params.txt'),
+    readLines('categorized/keypairs.txt'),
+    readLines('categorized/paths.txt'),
+    readLines('categorized/sourcemaps.txt'),
+    readLines('categorized/json_files.txt'),
+    readLines('takeover/potential_takeovers.txt'),
+    readLines('takeover/cname_results.txt'),
+    readLines('urls_optimized.txt'),
+    readLines('js.txt'),
+  ]);
+
+  const info = report?.scan_info || {};
+  const sum  = report?.summary  || {};
+  const hi   = report?.high_priority || {};
+
+  // Header
+  document.getElementById('hdrTarget').textContent = info.target || 'Unknown';
+  document.getElementById('hdrMeta').textContent =
+    `${info.timestamp || ''} · ${info.duration || ''}`;
+
+  // Parse trufflehog NDJSON for full secret values
+  const secrets = (secretsRaw || '').split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter(s => s && s.Raw);
+
+  // Stats
+  const stats = [
+    ['Subdomains',   sum.subdomains_total  || subdomains.length,  'blue'],
+    ['Live Hosts',   sum.subdomains_live   || liveHosts.length,   'green'],
+    ['URLs',         fmt(sum.urls_total    || 0),                  ''],
+    ['JS Files',     fmt(sum.js_files      || 0),                  'orange'],
+    ['Endpoints',    sum.endpoints_found   || endpoints.length,   'blue'],
+    ['Secrets',      sum.secrets_found     || secrets.length,     secrets.length ? 'red' : ''],
+    ['JWTs',         sum.jwt_tokens        || jwts.length,        jwts.length ? 'yellow' : ''],
+    ['GraphQL',      sum.graphql_endpoints || graphql.length,     graphql.length ? 'purple' : ''],
+    ['Params',       fmt(sum.hidden_params || params.length),      ''],
+    ['Takeovers',    sum.takeover_count    || takeovers.length,   takeovers.length ? 'red' : 'green'],
+  ];
+  document.getElementById('statsBar').innerHTML = stats.map(([l,v,c]) =>
+    `<div class="stat ${c}"><div class="val">${v}</div><div class="lbl">${l}</div></div>`
+  ).join('');
+
+  // Build js.txt lookup: "{domain_key}_{basename}" → original URL
+  const jsUrlMap = {};
+  for (const url of jsUrls) {
+    const domainKey = url.replace(/^https?:\/\/([^/]+).*/, '$1').replace(/[.:]/g, '_');
+    const basename  = url.replace(/\?.*/, '').replace(/.*\//, '');
+    jsUrlMap[domainKey + '_' + basename] = url;
+  }
+
+  // Parse httpx.txt for rich host data
+  const hostData = httpxRaw.map(parseHttpxLine).filter(Boolean);
+
+  // Build tabs + panels
+  const panels = [
+    { id: 'subdomains',  label: `Subdomains (${subdomains.length})`,  render: () => renderSubdomains(subdomains, hostData, liveHosts, takeovers, cnames) },
+    { id: 'urls',        label: `URLs (${fmt(urlsOptimized.length)})`, render: () => renderSearchable('Optimized URLs', urlsOptimized, true) },
+    { id: 'params',      label: `Params (${fmt(params.length)})`,     render: () => renderSearchable('Hidden Parameters', params) },
+    { id: 'jsfiles',     label: 'JS Files',                           render: () => renderJsFiles(secrets, jwts, graphql, endpoints, catSourcemaps, jsUrlMap) },
+    { id: 'categorized', label: 'Categorized',                        render: () => renderCategorized(keypairs, paths, jsonFiles, catSourcemaps) },
+    { id: 'delta',       label: 'Delta',                              render: () => renderDelta(delta) },
+  ];
+
+  const tabBar = document.getElementById('tabBar');
+  const container = document.getElementById('panelsContainer');
+  tabBar.innerHTML = '';
+  container.innerHTML = '';
+
+  panels.forEach((p, i) => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (i === 0 ? ' active' : '');
+    tab.textContent = p.label;
+    tab.onclick = () => switchTab(p.id, panels);
+    tabBar.appendChild(tab);
+
+    const panel = document.createElement('div');
+    panel.id = 'panel-' + p.id;
+    panel.className = 'panel' + (i === 0 ? ' active' : '');
+    panel.dataset.loaded = '0';
+    container.appendChild(panel);
+  });
+
+  // Render first panel
+  const firstPanel = document.getElementById('panel-' + panels[0].id);
+  firstPanel.innerHTML = panels[0].render();
+  firstPanel.dataset.loaded = '1';
+
+  // Store renders for lazy loading
+  window._panelRenders = Object.fromEntries(panels.map(p => [p.id, p.render]));
+
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+function switchTab(id, panels) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', panels[i].id === id);
+  });
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + id);
+  });
+  // Lazy render
+  const panel = document.getElementById('panel-' + id);
+  if (panel.dataset.loaded === '0') {
+    panel.innerHTML = window._panelRenders[id]();
+    panel.dataset.loaded = '1';
+  }
+}
+
+// ── Renderers ─────────────────────────────────────────────────────────────────
+function renderOverview(sum, info, report) {
+  return `
+    <div class="section">
+      <div class="section-title">Scan Info</div>
+      <table class="tbl">
+        <tr><td style="color:var(--muted);width:140px">Target</td><td>${info.target || '—'}</td></tr>
+        <tr><td style="color:var(--muted)">Timestamp</td><td>${info.timestamp || '—'}</td></tr>
+        <tr><td style="color:var(--muted)">Duration</td><td>${info.duration || '—'}</td></tr>
+        <tr><td style="color:var(--muted)">Output Dir</td><td style="font-size:11px;color:var(--muted)">${info.output_dir || '—'}</td></tr>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">Summary</div>
+      <table class="tbl">
+        ${Object.entries(sum).map(([k,v]) =>
+          `<tr><td style="color:var(--muted);width:200px">${k.replace(/_/g,' ')}</td><td>${fmt(v)}</td></tr>`
+        ).join('')}
+      </table>
+    </div>`;
+}
+
+function renderSubdomains(subdomains, hostData, liveHosts, takeovers, cnames) {
+  const liveSet = new Set(liveHosts.map(u => u.replace(/^https?:\/\//, '').replace(/\/$/, '')));
+  const hostMap = Object.fromEntries(hostData.map(h => [h.host, h]));
+
+  return `
+    <div class="section">
+      <div class="section-title">Live Hosts <span class="count">${hostData.length}</span></div>
+      <table class="tbl">
+        <thead><tr><th>URL</th><th>Status</th><th>Title</th><th>Tech</th></tr></thead>
+        <tbody>
+          ${hostData.map(h => `
+            <tr>
+              <td><a href="${h.url}" target="_blank">${h.url}</a></td>
+              <td><span class="badge ${statusClass(h.status)}">${h.status}</span></td>
+              <td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.title}</td>
+              <td style="font-size:11px;color:var(--muted)">${h.tech.slice(0,3).join(', ')}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">All Subdomains <span class="count">${subdomains.length}</span></div>
+      <div class="code-list">
+        ${subdomains.map(s => {
+          const isLive = liveSet.has(s);
+          return `<div class="item">${isLive ? '<span style="color:var(--green)">●</span> ' : '<span style="color:var(--border)">○</span> '}<a href="https://${s}" target="_blank" style="color:${isLive?'var(--blue)':'var(--text)'}">${s}</a></div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Potential Takeovers <span class="count">${takeovers.length}</span></div>
+      ${takeovers.length ? `<div class="code-list">${takeovers.map(t => `<div class="item" style="color:var(--red)">${esc(t)}</div>`).join('')}</div>` : '<div class="empty" style="color:var(--green)">✓ No takeovers detected</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">CNAME Results <span class="count">${cnames.length}</span></div>
+      ${cnames.length ? `<div class="code-list" style="max-height:300px">${cnames.map(c => `<div class="item">${esc(c)}</div>`).join('')}</div>` : '<div class="empty">No CNAME data</div>'}
+    </div>`;
+}
+
+function renderJsFiles(secrets, jwts, graphql, endpoints, sourcemaps, jsUrlMap) {
+  return `
+    <div class="section">
+      <div class="section-title">Secrets / Credentials <span class="count">${secrets.length}</span></div>
+      ${secrets.length ? `<div class="code-list">
+        ${secrets.map(s => {
+          const file = s.SourceMetadata?.Data?.Filesystem?.file || '';
+          const filename = file.replace(/.*\//, '');
+          const m = filename.match(/^(.+)_[0-9a-f]{8}_(.+)$/);
+          const origUrl = m ? jsUrlMap[m[1] + '_' + m[2]] : null;
+          const urlLink = origUrl
+            ? `<a href="${esc(origUrl)}" target="_blank" style="color:var(--blue);font-size:11px">${esc(origUrl)}</a>`
+            : `<span style="color:var(--muted);font-size:11px">${esc(filename)}</span>`;
+          return `<div class="item"><span class="secret-type">${esc(s.DetectorName)}</span>: <span class="secret-val">${esc(s.Raw)}</span><br>${urlLink}</div>`;
+        }).join('')}
+      </div>` : '<div class="empty">No secrets found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">GraphQL Endpoints <span class="count">${graphql.length}</span></div>
+      ${graphql.length ? `<div class="code-list">${graphql.map(g => `<div class="item"><a href="${esc(g)}" target="_blank" style="color:var(--purple)">${esc(g)}</a></div>`).join('')}</div>` : '<div class="empty">None found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">JWT Tokens <span class="count">${jwts.length}</span></div>
+      ${jwts.length ? paginatedList(jwts, 'jwt', 50) : '<div class="empty">None found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">Source Maps <span class="count">${sourcemaps.length}</span></div>
+      ${sourcemaps.length ? `<div class="code-list" style="max-height:200px">${sourcemaps.map(s => `<div class="item"><a href="${esc(s)}" target="_blank" style="color:var(--yellow)">${esc(s)}</a></div>`).join('')}</div>` : '<div class="empty">None found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">Discovered Endpoints <span class="count">${endpoints.length}</span></div>
+      ${endpoints.length ? paginatedList(endpoints, 'ep', 100, true) : '<div class="empty">None found</div>'}
+    </div>`;
+}
+
+function renderList(title, items, isUrl) {
+  if (!items.length) return `<div class="empty">No items</div>`;
+  return `
+    <div class="section">
+      <div class="section-title">${title} <span class="count">${items.length}</span></div>
+      ${paginatedList(items, 'ep', 100, isUrl)}
+    </div>`;
+}
+
+function renderSearchable(title, items, isUrl) {
+  const id = 'srch_' + Math.random().toString(36).slice(2);
+  const listId = 'list_' + id;
+  setTimeout(() => {
+    const input = document.getElementById(id);
+    const list = document.getElementById(listId);
+    if (!input || !list) return;
+    const allItems = items;
+    let current = allItems;
+    function renderAll(arr) {
+      list.innerHTML = arr.map(i => isUrl && /^https?:\/\//.test(i)
+        ? `<div class="item"><a href="${esc(i)}" target="_blank">${esc(i)}</a></div>`
+        : `<div class="item">${esc(i)}</div>`).join('');
+    }
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      current = q ? allItems.filter(i => i.toLowerCase().includes(q)) : allItems;
+      renderAll(current);
+      document.getElementById('count_' + id).textContent = current.length;
+    });
+    renderAll(allItems);
+  }, 0);
+
+  return `
+    <div class="section">
+      <div class="section-title">${title} <span class="count" id="count_${id}">${items.length}</span></div>
+      <div class="search-wrap">
+        <input id="${id}" type="text" placeholder="Filter...">
+      </div>
+      <div class="code-list" id="${listId}" style="max-height:600px"></div>
+    </div>`;
+}
+
+function renderCategorized(keypairs, paths, jsonFiles, sourcemaps) {
+  return `
+    ${renderSearchable('Key=Value Pairs', keypairs)}
+    ${renderSearchable('Paths', paths)}
+    ${renderSearchable('JSON Files', jsonFiles, true)}
+    ${renderSearchable('Source Maps', sourcemaps, true)}`;
+}
+
+function renderTakeover(takeovers, cnames) {
+  return `
+    <div class="section">
+      <div class="section-title">Potential Takeovers <span class="count">${takeovers.length}</span></div>
+      ${takeovers.length ? `<div class="code-list">${takeovers.map(t => `<div class="item" style="color:var(--red)">${esc(t)}</div>`).join('')}</div>` : '<div class="empty" style="color:var(--green)">✓ No takeovers detected</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">CNAME Results <span class="count">${cnames.length}</span></div>
+      ${cnames.length ? `<div class="code-list" style="max-height:300px">${cnames.map(c => `<div class="item">${esc(c)}</div>`).join('')}</div>` : '<div class="empty">No CNAME data</div>'}
+    </div>`;
+}
+
+function renderDelta(delta) {
+  if (!delta) return '<div class="empty">No delta data found</div>';
+  const chg = delta.changes || {};
+  const cards = Object.entries(chg).map(([k, v]) => {
+    const cls = v > 0 ? 'pos' : v < 0 ? 'neg' : 'zero';
+    const prefix = v > 0 ? '+' : '';
+    return `<div class="delta-card"><div class="chg ${cls}">${prefix}${v}</div><div class="name">${k.replace(/_/g,' ')}</div></div>`;
+  });
+  return `
+    <div class="section">
+      <div class="section-title">Scan Comparison</div>
+      <table class="tbl" style="max-width:400px">
+        <tr><td style="color:var(--muted)">Previous scan</td><td>${delta.previous_scan || '—'}</td></tr>
+        <tr><td style="color:var(--muted)">Current scan</td><td>${delta.current_scan || '—'}</td></tr>
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">Changes</div>
+      <div class="delta-grid">${cards.join('')}</div>
+    </div>`;
+}
+
+// ── Pagination helper ──────────────────────────────────────────────────────────
+function paginatedList(items, key, pageSize, isUrl) {
+  const html = items.map(i => isUrl && /^https?:\/\//.test(i)
+    ? `<div class="item"><a href="${esc(i)}" target="_blank">${esc(i)}</a></div>`
+    : `<div class="item">${esc(i)}</div>`).join('');
+  return `
+    <div class="code-list" style="max-height:400px">${html}</div>`;
+}
+
+// ── Parsers / helpers ─────────────────────────────────────────────────────────
+function parseHttpxLine(line) {
+  // Format: URL [STATUS] [TITLE] [SERVER] [TECH,...] [HOST]
+  const m = line.match(/^(https?:\/\/\S+)\s+\[(\d+)\]\s+\[([^\]]*)\]\s+\[([^\]]*)\]\s+\[([^\]]*)\]\s+\[([^\]]*)\]/);
+  if (!m) return null;
+  return {
+    url: m[1], status: m[2], title: m[3],
+    server: m[4], tech: m[5].split(',').map(s=>s.trim()).filter(Boolean), host: m[6]
+  };
+}
+
+function statusClass(s) {
+  if (!s) return 'sother';
+  if (s.startsWith('2')) return 's200';
+  if (s === '301') return 's301';
+  if (s === '302') return 's302';
+  if (s === '303') return 's303';
+  if (s === '401') return 's401';
+  if (s === '403') return 's403';
+  if (s.startsWith('5')) return 's500';
+  return 'sother';
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function resetApp() {
+  fileMap = {};
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('landing').style.display = 'flex';
+  document.getElementById('folderInput').value = '';
+}
+</script>
+</body>
+</html>
