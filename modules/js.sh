@@ -26,29 +26,62 @@ js_step() {
         js_count=$MAX_JS_FILES
     fi
 
-    info "Downloading $js_count JavaScript files (parallel)..."
+    # Filter out already-processed URLs via persistent manifest
+    local seen_manifest="$outdir/js/.seen_urls.txt"
+    local js_download_input="$js_input"
+    if [[ -s "$seen_manifest" ]]; then
+        local js_new="$outdir/js/js_new.txt"
+        comm -23 <(sort "$js_input") <(sort "$seen_manifest") > "$js_new"
+        local new_count already_count
+        new_count=$(wc -l < "$js_new")
+        already_count=$((js_count - new_count))
+        if [[ $new_count -eq 0 ]]; then
+            info "All $js_count JS URLs already processed; skipping download."
+            rm -f "$js_new" "$outdir/js_limited.txt"
+            return
+        fi
+        info "JS manifest: $already_count already seen, $new_count new"
+        js_download_input="$js_new"
+        js_count=$new_count
+    fi
 
-    # Parallel download with unique filenames
+    local MAX_PARALLEL_DOWNLOAD="${MAX_PARALLEL_JS_DOWNLOAD:-5}"
+    info "Downloading $js_count JavaScript files (per-host serial, $MAX_PARALLEL_DOWNLOAD hosts parallel)..."
+
+    # Bucket URLs by host so each host is downloaded sequentially (avoids CF blocks)
+    local hosts_dir="$outdir/js/.by_host"
+    ensure_dir "$hosts_dir"
     while read -r js_url; do
         [[ -z "$js_url" ]] && continue
+        local host_key
+        host_key=$(printf '%s' "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '/:' '__')
+        printf '%s\n' "$js_url" >> "$hosts_dir/$host_key.list"
+    done < "$js_download_input"
 
+    # One worker per host — sequential curl within each worker
+    for host_file in "$hosts_dir"/*.list; do
+        [[ -f "$host_file" ]] || continue
         (
-            # Create unique filename: domain_hash_basename
-            local js_domain js_basename js_hash js_filename
-            js_domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
-            js_basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
-            # Ensure .js extension so find -name "*.js" picks it up
-            [[ "$js_basename" != *.* ]] && js_basename="${js_basename:-index}.js"
-            js_hash=$(echo "$js_url" | md5sum | cut -c1-8)
-            js_filename="${js_domain}_${js_hash}_${js_basename}"
-
-            curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$js_filename" 2>/dev/null
+            while read -r js_url; do
+                [[ -z "$js_url" ]] && continue
+                local js_domain js_basename js_hash js_filename
+                js_domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
+                js_basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
+                [[ "$js_basename" != *.* ]] && js_basename="${js_basename:-index}.js"
+                js_hash=$(echo "$js_url" | md5sum | cut -c1-8)
+                js_filename="${js_domain}_${js_hash}_${js_basename}"
+                curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$js_filename" 2>/dev/null
+            done < "$host_file"
         ) &
-
-        # Limit parallel jobs
-        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n 2>/dev/null
-    done < "$js_input"
+        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_DOWNLOAD ]] && wait -n 2>/dev/null
+    done
     wait_jobs "js-download"
+    rm -rf "$hosts_dir"
+
+    # Append newly processed URLs to manifest
+    sort -u "$js_download_input" >> "$seen_manifest"
+    sort -u "$seen_manifest" -o "$seen_manifest"
+    rm -f "$outdir/js/js_new.txt"
 
     # Count downloaded files
     local downloaded
@@ -127,7 +160,6 @@ js_step() {
     info "Scanning for secrets (trufflehog)..."
     trufflehog filesystem \
         --directory="$outdir/js/files" \
-        --only-verified \
         --json 2>/dev/null > "$outdir/js/analysis/trufflehog.json"
 
     if [[ -s "$outdir/js/analysis/trufflehog.json" ]]; then
