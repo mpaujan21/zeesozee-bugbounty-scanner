@@ -25,7 +25,7 @@ urls_step() {
 
         if is_tool_enabled "ENABLE_WAYMORE"; then
             info "Running waymore"
-            { waymore -i "$domain" -n -mode U -oU "$tmpdir/waymore.txt" >/dev/null 2>&1; } || true &
+            { waymore -i "$outdir/clean_httpx.txt" -n -mode U -oU "$tmpdir/waymore.txt" >/dev/null 2>&1; } || true &
         else
             touch "$tmpdir/waymore.txt"
         fi
