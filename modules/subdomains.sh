@@ -100,6 +100,23 @@ subdomains_step() {
             touch "$tmpdir/chaos.txt"
         fi
 
+        if is_tool_enabled "ENABLE_CRTSH"; then
+            info "Querying crt.sh (Certificate Transparency)"
+            (
+                curl -s --max-time 30 \
+                    "https://crt.sh/?q=%.${domain}&output=json" \
+                    2>/dev/null \
+                | jq -r '.[].name_value' 2>/dev/null \
+                | sed 's/\*\.//g' \
+                | grep -v "^$" \
+                | sed 's/^/[crtsh] /' \
+                | sort -u > "$tmpdir/crtsh.txt"
+            ) &
+        else
+            info "Skipping crt.sh (disabled in config)"
+            touch "$tmpdir/crtsh.txt"
+        fi
+
         wait_jobs "subdomains"
     )
 

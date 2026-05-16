@@ -212,7 +212,7 @@ async function buildDashboard() {
   const [report, delta, subdomains, liveHosts, httpxRaw,
          secretsRaw, endpoints, jwts, graphql, params,
          keypairs, paths, catSourcemaps, jsonFiles, takeovers, cnames,
-         urlsOptimized, jsUrls] = await Promise.all([
+         urlsOptimized, jsUrls, smapPorts, smapHttp] = await Promise.all([
     readJSON('report.json'),
     readJSON('delta.json'),
     readLines('subdomains.txt'),
@@ -231,6 +231,8 @@ async function buildDashboard() {
     readLines('takeover/cname_results.txt'),
     readLines('urls_optimized.txt'),
     readLines('js.txt'),
+    readLines('ports/smap_open.txt'),
+    readLines('ports/smap_http.txt'),
   ]);
 
   const info = report?.scan_info || {};
@@ -259,6 +261,7 @@ async function buildDashboard() {
     ['GraphQL',      sum.graphql_endpoints || graphql.length,     graphql.length ? 'purple' : ''],
     ['Params',       fmt(sum.hidden_params || params.length),      ''],
     ['Takeovers',    sum.takeover_count    || takeovers.length,   takeovers.length ? 'red' : 'green'],
+    ['Open Ports',   smapPorts.length,                           smapPorts.length ? 'orange' : ''],
   ];
   document.getElementById('statsBar').innerHTML = stats.map(([l,v,c]) =>
     `<div class="stat ${c}"><div class="val">${v}</div><div class="lbl">${l}</div></div>`
@@ -282,6 +285,7 @@ async function buildDashboard() {
     { id: 'params',      label: `Params (${fmt(params.length)})`,     render: () => renderSearchable('Hidden Parameters', params) },
     { id: 'jsfiles',     label: 'JS Files',                           render: () => renderJsFiles(secrets, jwts, graphql, endpoints, catSourcemaps, jsUrlMap) },
     { id: 'categorized', label: 'Categorized',                        render: () => renderCategorized(keypairs, paths, jsonFiles, catSourcemaps) },
+    { id: 'ports',       label: `Ports (${smapPorts.length})`,        render: () => renderPorts(smapPorts, smapHttp) },
     { id: 'delta',       label: 'Delta',                              render: () => renderDelta(delta) },
   ];
 
@@ -486,6 +490,65 @@ function renderTakeover(takeovers, cnames) {
     <div class="section">
       <div class="section-title">CNAME Results <span class="count">${cnames.length}</span></div>
       ${cnames.length ? `<div class="code-list" style="max-height:300px">${cnames.map(c => `<div class="item">${esc(c)}</div>`).join('')}</div>` : '<div class="empty">No CNAME data</div>'}
+    </div>`;
+}
+
+function renderPorts(smapPorts, smapHttp) {
+  if (!smapPorts.length && !smapHttp.length) {
+    return '<div class="empty">No Smap data found. Run scan with --yes-smap y</div>';
+  }
+
+  // Group open ports by host
+  const byHost = {};
+  for (const line of smapPorts) {
+    const idx = line.lastIndexOf(':');
+    if (idx === -1) continue;
+    const host = line.slice(0, idx);
+    const port = line.slice(idx + 1);
+    if (!byHost[host]) byHost[host] = [];
+    byHost[host].push(port);
+  }
+
+  const hostRows = Object.entries(byHost).map(([host, ports]) => `
+    <tr>
+      <td><a href="http://${esc(host)}" target="_blank">${esc(host)}</a></td>
+      <td>${ports.map(p => `<span class="badge sother" style="margin:1px 2px">${esc(p)}</span>`).join('')}</td>
+      <td style="color:var(--muted);font-size:11px">${ports.length} port${ports.length !== 1 ? 's' : ''}</td>
+    </tr>`).join('');
+
+  const httpRows = smapHttp.map(line => {
+    const m = line.match(/^(https?:\/\/\S+)/);
+    const url = m ? m[1] : null;
+    const statusM = line.match(/\[(\d{3})\]/);
+    const status = statusM ? statusM[1] : '?';
+    return `<tr>
+      <td>${url ? `<a href="${esc(url)}" target="_blank">${esc(url)}</a>` : esc(line)}</td>
+      <td><span class="badge ${statusClass(status)}">${status}</span></td>
+      <td style="color:var(--muted);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(line.replace(/^https?:\/\/\S+\s*/, ''))}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="section">
+      <div class="section-title" style="color:var(--muted);font-size:11px;margin-bottom:6px">
+        ⚡ Passive scan via Shodan — no active probes sent to target
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Open Ports by Host <span class="count">${Object.keys(byHost).length} hosts · ${smapPorts.length} ports</span></div>
+      ${Object.keys(byHost).length ? `
+        <table class="tbl">
+          <thead><tr><th>Host</th><th>Open Ports</th><th></th></tr></thead>
+          <tbody>${hostRows}</tbody>
+        </table>` : '<div class="empty">No open ports found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">HTTP Services on Non-Standard Ports <span class="count">${smapHttp.length}</span></div>
+      ${smapHttp.length ? `
+        <table class="tbl">
+          <thead><tr><th>URL</th><th>Status</th><th>Details</th></tr></thead>
+          <tbody>${httpRows}</tbody>
+        </table>` : '<div class="empty">No HTTP services found on discovered ports</div>'}
     </div>`;
 }
 

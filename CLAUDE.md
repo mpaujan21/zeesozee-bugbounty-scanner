@@ -26,12 +26,13 @@ lib/
   colors.sh          # Terminal output helpers (info, ok, warn, err, banner)
   utils.sh           # Utilities (ensure_dir, prompt_yn, run)
 modules/
-  subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos) + recursive enum
+  subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos, crt.sh) + recursive enum
   probing.sh         # HTTP probing with httpx, outputs httpx.txt + clean_httpx.txt
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
-  urls.sh            # URL discovery (waybackurls, waymore, gau, katana, gospider)
+  urls.sh            # URL discovery (waybackurls, waymore, katana)
   categorize.sh      # GF pattern matching + unfurl extraction
   js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder)
+  smap.sh            # Passive port scan via Shodan data (optional, no active probes)
   takeover.sh        # Subdomain takeover detection via dangling CNAME fingerprints
   screenshots.sh     # Screenshot capture with gowitness
   delta.sh           # Delta/diff scanning — highlights new findings between scans
@@ -42,10 +43,10 @@ modules/
 
 1. **subdomains_step**: Parallel passive enumeration, wildcard detection
 2. **probe_step**: httpx probing (80/443 + common ports), generates `clean_httpx.txt` (URL list) and `httpx.txt` (human-readable)
-3. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
-4. **screenshots_step** (optional): gowitness screenshot capture of live hosts
-5. **permutation_step**: Generate and resolve permutations, append new discoveries
-6. **urls_step**: Passive + active URL collection, uro optimization
+3. **smap_step** (optional): Passive port scan via Shodan — no packets sent to target, outputs `ports/smap_open.txt` + `ports/smap_http.txt`
+4. **takeover_step**: Check subdomains for dangling CNAMEs (configurable, default on)
+5. **screenshots_step** (optional): gowitness screenshot capture of live hosts
+6. **urls_step**: Passive + active URL collection, unfurl optimization
 7. **categorize_step**: GF patterns (sqli, xss, ssrf, etc.), unfurl extraction
 8. **js_step** (optional): Download JS, extract endpoints/secrets
 9. **report_step**: Generate `report.md` and `report.json`
@@ -78,6 +79,7 @@ modules/
 - `ENABLE_SCREENSHOTS`: Enable screenshot capture (default: true)
 - `ENABLE_JSHUNTER`: Enable JShunter JS analysis (JWT/Firebase/GraphQL/params, default: true)
 - `ENABLE_CHAOS`: Enable Chaos dataset source (default: true, requires `CHAOS_PDCP_API_KEY`)
+- `ENABLE_CRTSH`: Enable crt.sh Certificate Transparency log query (default: true, requires `curl` + `jq`)
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
 
@@ -86,7 +88,7 @@ modules/
 Enumeration: subfinder, assetfinder, findomain, amass, chaos, jq
 DNS: dnsgen, dnsx, alterx, gotator
 Probing: httpx, ffuf (optional, for vhost)
-URLs: waybackurls, waymore, gau, katana, gospider, uro
+URLs: waybackurls, waymore, katana, unfurl
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter
 Optional: gowitness (screenshots)

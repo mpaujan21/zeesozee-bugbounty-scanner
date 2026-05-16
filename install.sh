@@ -53,9 +53,11 @@ install_go_tools() {
         "github.com/projectdiscovery/httpx/cmd/httpx@latest"
         # naabu removed — replaced by rustscan (see install_rust_tools)
 
+        # Port scanning (passive)
+        "github.com/s0md3v/Smap/cmd/smap@latest"
+
         # URL discovery
         "github.com/tomnomnom/waybackurls@latest"
-        "github.com/lc/gau/v2/cmd/gau@latest"
         "github.com/projectdiscovery/katana/cmd/katana@latest"
 
         # Permutation
@@ -136,15 +138,6 @@ install_external_tools() {
         ok "amass already installed"
     fi
 
-    # Install gospider
-    if ! command -v gospider >/dev/null 2>&1; then
-        info "Installing gospider..."
-        go install github.com/jaeles-project/gospider@latest 2>&1 | tail -1
-        ok "Installed gospider"
-    else
-        ok "gospider already installed"
-    fi
-
     # Install dnsgen
     if ! command -v dnsgen >/dev/null 2>&1 && check_python; then
         info "Installing dnsgen..."
@@ -196,7 +189,7 @@ verify_installation() {
     local required_tools=(
         "subfinder" "assetfinder" "findomain" "amass"
         "httpx" "rustscan" "dnsx"
-        "waybackurls" "gau" "katana" "gospider"
+        "waybackurls" "katana"
         "alterx" "dnsgen" "gotator"
         "gf" "unfurl" "ffuf"
         "curl" "jq"

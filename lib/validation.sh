@@ -18,7 +18,7 @@ check_required_tools() {
     local probing_tools=(httpx rustscan)
 
     # URL discovery tools
-    local url_tools=(waybackurls waymore gau katana gospider uro)
+    local url_tools=(waybackurls waymore katana unfurl)
 
     # Categorization tools
     local categorize_tools=(gf unfurl)

@@ -97,7 +97,7 @@ js_step() {
                         jsluice secrets "$js_path" 2>/dev/null \
                             > "$jsl_sec_dir/${js_hash}.txt"
                         jsl_urls=$(wc -l < "$jsl_urls_dir/${js_hash}.txt" 2>/dev/null || echo 0)
-                        jsl_sec=$(grep -c . "$jsl_sec_dir/${js_hash}.txt" 2>/dev/null || echo 0)
+                        jsl_sec=$(wc -l < "$jsl_sec_dir/${js_hash}.txt" 2>/dev/null || echo 0)
                         [[ $jsl_urls -eq 0 ]] && rm -f "$jsl_urls_dir/${js_hash}.txt"
                         [[ $jsl_sec  -eq 0 ]] && rm -f "$jsl_sec_dir/${js_hash}.txt"
                     fi
@@ -110,26 +110,26 @@ js_step() {
                     [[ $lf_count -eq 0 ]] && rm -f "$lf_dir/${js_hash}.txt"
                 fi
 
-                # Atomic counter increment
-                local n
-                n=$(
-                    (
-                        flock -x 9
-                        local v
-                        v=$(cat "$counter_file" 2>/dev/null || echo 0)
-                        v=$((v + 1))
-                        echo "$v" > "$counter_file"
-                        echo "$v"
-                    ) 9>"$lock_file"
-                )
-                printf '[JS %d/%d] %s → jsluice: %d urls %d secrets | lf: %d endpoints\n' \
-                    "$n" "$total" "$js_filename" "$jsl_urls" "$jsl_sec" "$lf_count"
+                # Atomic counter increment + progress bar (serialized by lock)
+                (
+                    flock -x 9
+                    local v width filled empty bar
+                    v=$(cat "$counter_file" 2>/dev/null || echo 0)
+                    v=$((v + 1))
+                    echo "$v" > "$counter_file"
+                    width=40
+                    filled=$(( v * width / total ))
+                    empty=$(( width - filled ))
+                    bar="$(printf '%*s' "$filled" '' | tr ' ' '#')$(printf '%*s' "$empty" '' | tr ' ' '-')"
+                    printf '\r\033[KJS: [%s] %d/%d' "$bar" "$v" "$total" >&2
+                ) 9>"$lock_file"
 
             done < "$host_file"
         ) &
         [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_DOWNLOAD ]] && wait -n 2>/dev/null
     done
     wait_jobs "js-download-scan"
+    printf '\n' >&2
     rm -rf "$hosts_dir"
 
     # Append newly processed URLs to manifest
@@ -231,10 +231,10 @@ js_step() {
         [[ ! -s "$outdir/js/analysis/jshunter_params.txt" ]] && rm -f "$outdir/js/analysis/jshunter_params.txt"
 
         local jh_jwt jh_fb jh_gql jh_params
-        jh_jwt=$(wc -l < "$outdir/js/analysis/jshunter_jwt.txt" 2>/dev/null || echo 0)
-        jh_fb=$(wc -l < "$outdir/js/analysis/jshunter_firebase.txt" 2>/dev/null || echo 0)
-        jh_gql=$(wc -l < "$outdir/js/analysis/jshunter_graphql.txt" 2>/dev/null || echo 0)
-        jh_params=$(wc -l < "$outdir/js/analysis/jshunter_params.txt" 2>/dev/null || echo 0)
+        jh_jwt=$(wc -l "$outdir/js/analysis/jshunter_jwt.txt" 2>/dev/null | awk '{print $1}'); jh_jwt=${jh_jwt:-0}
+        jh_fb=$(wc -l "$outdir/js/analysis/jshunter_firebase.txt" 2>/dev/null | awk '{print $1}'); jh_fb=${jh_fb:-0}
+        jh_gql=$(wc -l "$outdir/js/analysis/jshunter_graphql.txt" 2>/dev/null | awk '{print $1}'); jh_gql=${jh_gql:-0}
+        jh_params=$(wc -l "$outdir/js/analysis/jshunter_params.txt" 2>/dev/null | awk '{print $1}'); jh_params=${jh_params:-0}
         ok "JShunter: ${jh_jwt} JWT, ${jh_fb} Firebase, ${jh_gql} GraphQL, ${jh_params} hidden params"
         [[ $jh_fb -gt 0 ]] && warn "Firebase configs found — verify DB rules / API key scope!"
     fi

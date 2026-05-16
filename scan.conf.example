@@ -29,11 +29,9 @@ ENABLE_GOTATOR=true
 # Passive URL collection (fast)
 ENABLE_WAYBACKURLS=true
 ENABLE_WAYMORE=true
-ENABLE_GAU=true
 
 # Active crawling (slower, more thorough)
 ENABLE_KATANA=true
-ENABLE_GOSPIDER=true
 
 # ============================================
 # SCAN BEHAVIOR
@@ -66,7 +64,7 @@ MAX_PARALLEL_BACKUPS=10
 
 # Fast scan (skip slow tools)
 # ENABLE_AMASS=false
-# ENABLE_GOSPIDER=false
+# ENABLE_WAYMORE=false
 
 # Thorough scan (enable everything, takes longer)
 # ENABLE_AMASS=true
@@ -74,6 +72,5 @@ MAX_PARALLEL_BACKUPS=10
 
 # Minimal scan (fastest, least coverage)
 # ENABLE_AMASS=false
-# ENABLE_GOSPIDER=false
 # ENABLE_WAYMORE=false
 # ENABLE_KATANA=false

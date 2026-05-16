@@ -13,6 +13,8 @@ subfinder               # go install github.com/projectdiscovery/subfinder/v2/cm
 assetfinder             # go install github.com/tomnomnom/assetfinder@latest
 findomain               # https://github.com/Findomain/Findomain/releases
 amass                   # go install github.com/owasp-amass/amass/v4/...@master
+chaos                   # go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest (requires CHAOS_PDCP_API_KEY)
+# crt.sh — no install needed, uses curl + jq (already in Core Dependencies)
 
 # DNS Resolution
 # --------------
@@ -25,6 +27,7 @@ httpx                   # go install github.com/projectdiscovery/httpx/cmd/httpx
 # Port Scanning
 # -------------
 rustscan                # cargo install rustscan
+smap                    # go install github.com/s0md3v/Smap/cmd/smap@latest (optional, passive via Shodan)
 
 # Subdomain Permutation
 # ---------------------
@@ -35,11 +38,8 @@ gotator                 # go install github.com/Josue87/gotator@latest
 # URL Discovery
 # -------------
 waybackurls             # go install github.com/tomnomnom/waybackurls@latest
-gau                     # go install github.com/lc/gau/v2/cmd/gau@latest
 katana                  # go install github.com/projectdiscovery/katana/cmd/katana@latest
-gospider                # go install github.com/jaeles-project/gospider@latest
 waymore                 # pip install waymore
-uro                     # pip install uro
 
 # URL Analysis & Categorization
 # -----------------------------
@@ -71,15 +71,15 @@ paramspider             # pip install paramspider
 # go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 # go install github.com/tomnomnom/assetfinder@latest
 # go install github.com/owasp-amass/amass/v4/...@master
+# go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest
 # go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
 # go install github.com/projectdiscovery/httpx/cmd/httpx@latest
 # cargo install rustscan
+# go install github.com/s0md3v/Smap/cmd/smap@latest
 # go install github.com/projectdiscovery/alterx/cmd/alterx@latest
 # go install github.com/Josue87/gotator@latest
 # go install github.com/tomnomnom/waybackurls@latest
-# go install github.com/lc/gau/v2/cmd/gau@latest
 # go install github.com/projectdiscovery/katana/cmd/katana@latest
-# go install github.com/jaeles-project/gospider@latest
 # go install github.com/hakluke/hakrawler@latest
 # go install github.com/tomnomnom/gf@latest
 # go install github.com/tomnomnom/unfurl@latest

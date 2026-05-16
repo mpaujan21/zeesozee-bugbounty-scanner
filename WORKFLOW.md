@@ -25,7 +25,7 @@ Domain Input
      |
      v
 +------------------+
-| 4. URL Discovery |  Collect all known URLs (waybackurls, waymore, gau, katana, gospider)
+| 4. URL Discovery |  Collect all known URLs (waybackurls, waymore, katana)
 +------------------+
      |
      v

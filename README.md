@@ -11,9 +11,9 @@ Automates a fast recon pipeline for bug bounty hunting. The main `scan.sh` scrip
 ## Requirements
 Install the following command-line tools and make sure they are available in your `PATH`:
 
-- Enumeration: `subfinder`, `assetfinder`, `findomain`
+- Enumeration: `subfinder`, `assetfinder`, `findomain`, `amass`, `chaos` (optional, needs API key), crt.sh (via `curl` + `jq`, no install)
 - Probing & ports: `httpx`, `rustscan`, `dnsgen`, `dnsx`
-- URL collection & cleaning: `waybackurls`, `gau`, `katana`, `uro`
+- URL collection & cleaning: `waybackurls`, `waymore`, `katana`, `unfurl`
 - Categorization helpers: `gf`, `unfurl`
 - Sensitive file hunting: `backupfinder`, `ffuf`
 - JavaScript analysis (optional): `curl`, `prettier`, `python3`, LinkFinder (`$TOOLS/LinkFinder/linkfinder.py`), `trufflehog`

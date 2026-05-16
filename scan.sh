@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/fileops.sh"
 
 # load modules
-for mod in subdomains probing permutation urls categorize js report takeover screenshots delta; do
+for mod in subdomains probing permutation urls categorize js report takeover screenshots delta smap; do
     . "$SCRIPT_DIR/modules/${mod}.sh"
 done
 
@@ -29,6 +29,7 @@ ${BOLD}Options:${RESET}
   --threads N       Number of concurrent threads (default: 50, range: 1-1000)
   --yes-js y|n      Enable JavaScript analysis (interactive if not specified)
   --yes-screenshots y|n  Enable screenshot capture with gowitness (interactive if not specified)
+  --yes-smap y|n        Enable Smap passive port scan via Shodan (interactive if not specified)
   --config FILE     Load configuration from FILE (default: scan.conf or ~/.zee-scanner.conf)
   --force-restart   Clear previous scan state and restart from beginning
   --help            Show this help message
@@ -66,7 +67,7 @@ fi
 
 HACK="${HACK:-$HOME/HACK}"; FOLDERNAME="$1"; OUTDIR="${HACK%/}/programs/$1"; DOMAIN="$2"; shift 2
 THREADS="${SCAN_THREADS:-50}"
-YES_JS="ask"; YES_SCREENSHOTS="ask"
+YES_JS="ask"; YES_SCREENSHOTS="ask"; YES_SMAP="ask"
 FORCE_RESTART=false
 CONFIG_FILE=""
 
@@ -75,6 +76,7 @@ while [[ $# -gt 0 ]]; do
         --threads) THREADS="${2:-$THREADS}"; shift 2;;
         --yes-js) YES_JS="${2:-ask}"; shift 2;;
         --yes-screenshots) YES_SCREENSHOTS="${2:-ask}"; shift 2;;
+        --yes-smap) YES_SMAP="${2:-ask}"; shift 2;;
         --force-restart) FORCE_RESTART=true; shift;;
         --config) CONFIG_FILE="$2"; shift 2;;
         --help|-h) show_help; exit 0;;
@@ -141,10 +143,12 @@ fi
 # prompts (if not pre-answered)
 [[ "$YES_JS" == "ask" ]] && YES_JS="$(prompt_yn 'Run JS Analysis?')"
 [[ "$YES_SCREENSHOTS" == "ask" ]] && YES_SCREENSHOTS="$(prompt_yn 'Capture Screenshots?')"
+[[ "$YES_SMAP" == "ask" ]] && YES_SMAP="$(prompt_yn 'Run Smap passive port scan?')"
 
 # Calculate total steps based on enabled features
 TOTAL_STEPS=6  # subdomains, probe, urls, categorize, report, delta
 is_tool_enabled ENABLE_TAKEOVER && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+[[ "$YES_SMAP" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_SCREENSHOTS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 [[ "$YES_JS" == "y" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
 TOTAL_STEPS=$((TOTAL_STEPS + 1))  # export
@@ -182,6 +186,15 @@ if ! is_completed "probe"; then
     probe_step "$(pwd)" "$THREADS" && mark_completed "probe"
 else
     info "Skipping probing (already completed)"
+fi
+
+if [[ "$YES_SMAP" == "y" ]]; then
+    next_step "Smap Passive Port Scan"
+    if ! is_completed "smap"; then
+        smap_step "$(pwd)" && mark_completed "smap"
+    else
+        info "Skipping Smap scan (already completed)"
+    fi
 fi
 
 if is_tool_enabled ENABLE_TAKEOVER; then

@@ -172,6 +172,7 @@ set_default_config() {
   export ENABLE_AMASS="${ENABLE_AMASS:-true}"
   export ENABLE_CHAOS="${ENABLE_CHAOS:-true}"
   export CHAOS_PDCP_API_KEY="${CHAOS_PDCP_API_KEY:-}"
+  export ENABLE_CRTSH="${ENABLE_CRTSH:-true}"
   export ENABLE_RECURSIVE_ENUM="${ENABLE_RECURSIVE_ENUM:-true}"
   export RECURSIVE_ENUM_MAX_ZONES="${RECURSIVE_ENUM_MAX_ZONES:-5}"
 
@@ -183,9 +184,7 @@ set_default_config() {
   # URL discovery tools
   export ENABLE_WAYBACKURLS="${ENABLE_WAYBACKURLS:-true}"
   export ENABLE_WAYMORE="${ENABLE_WAYMORE:-true}"
-  export ENABLE_GAU="${ENABLE_GAU:-true}"
   export ENABLE_KATANA="${ENABLE_KATANA:-true}"
-  export ENABLE_GOSPIDER="${ENABLE_GOSPIDER:-true}"
 
   # Feature toggles
   export ENABLE_TAKEOVER="${ENABLE_TAKEOVER:-true}"
