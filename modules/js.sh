@@ -4,7 +4,6 @@
 js_step() {
     local outdir="$1" threads="${2:-50}" domain="${3:-}"
 
-    # Use config values (set by scan.sh)
     local MAX_PARALLEL="${MAX_PARALLEL_JS:-10}"
     local MAX_JS_FILES="${MAX_JS_FILES:-0}"
 
@@ -17,7 +16,6 @@ js_step() {
     local js_count
     js_count=$(wc -l < "$outdir/js.txt")
 
-    # Point to limited subset if needed, otherwise use js.txt directly
     local js_input="$outdir/js.txt"
     if [[ $MAX_JS_FILES -gt 0 && $js_count -gt $MAX_JS_FILES ]]; then
         warn "Too many JS files ($js_count), limiting to $MAX_JS_FILES"
@@ -46,9 +44,23 @@ js_step() {
     fi
 
     local MAX_PARALLEL_DOWNLOAD="${MAX_PARALLEL_JS_DOWNLOAD:-5}"
-    info "Downloading $js_count JavaScript files (per-host serial, $MAX_PARALLEL_DOWNLOAD hosts parallel)..."
+    info "Downloading and scanning $js_count JavaScript files ($MAX_PARALLEL_DOWNLOAD hosts parallel)..."
 
-    # Bucket URLs by host so each host is downloaded sequentially (avoids CF blocks)
+    # Temp dirs for per-file scan results (avoid write races between parallel workers)
+    local jsl_urls_dir="$outdir/js/analysis/.jsl_urls"
+    local jsl_sec_dir="$outdir/js/analysis/.jsl_sec"
+    local lf_dir="$outdir/js/analysis/.lf_tmp"
+    ensure_dir "$jsl_urls_dir"
+    ensure_dir "$jsl_sec_dir"
+    ensure_dir "$lf_dir"
+
+    # Atomic progress counter via flock
+    local counter_file="$outdir/js/.progress_count"
+    local lock_file="$outdir/js/.progress.lock"
+    echo 0 > "$counter_file"
+    local total=$js_count
+
+    # Bucket URLs by host — sequential within each host avoids CF/rate-limit blocks
     local hosts_dir="$outdir/js/.by_host"
     ensure_dir "$hosts_dir"
     while read -r js_url; do
@@ -58,37 +70,78 @@ js_step() {
         printf '%s\n' "$js_url" >> "$hosts_dir/$host_key.list"
     done < "$js_download_input"
 
-    # One worker per host — sequential curl within each worker
+    # Per-host worker: download then scan each file immediately (no wait-all-then-scan)
     for host_file in "$hosts_dir"/*.list; do
         [[ -f "$host_file" ]] || continue
         (
             while read -r js_url; do
                 [[ -z "$js_url" ]] && continue
-                local js_domain js_basename js_hash js_filename
+                local js_domain js_basename js_hash js_filename js_path
                 js_domain=$(echo "$js_url" | sed -E 's|https?://([^/]+).*|\1|' | tr '.:' '_')
                 js_basename=$(echo "$js_url" | sed 's/\?.*//; s|.*/||')
                 [[ "$js_basename" != *.* ]] && js_basename="${js_basename:-index}.js"
                 js_hash=$(echo "$js_url" | md5sum | cut -c1-8)
                 js_filename="${js_domain}_${js_hash}_${js_basename}"
-                curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$outdir/js/files/$js_filename" 2>/dev/null
+                js_path="$outdir/js/files/$js_filename"
+
+                curl --max-time 30 -sL -H "$HEADER" "$js_url" -o "$js_path" 2>/dev/null
+
+                local jsl_urls=0 jsl_sec=0 lf_count=0
+
+                if [[ -s "$js_path" ]]; then
+                    # jsluice — scan immediately after download
+                    if command -v jsluice >/dev/null 2>&1; then
+                        jsluice urls "$js_path" 2>/dev/null \
+                            | jq -r '.url // empty' 2>/dev/null \
+                            > "$jsl_urls_dir/${js_hash}.txt"
+                        jsluice secrets "$js_path" 2>/dev/null \
+                            > "$jsl_sec_dir/${js_hash}.txt"
+                        jsl_urls=$(wc -l < "$jsl_urls_dir/${js_hash}.txt" 2>/dev/null || echo 0)
+                        jsl_sec=$(grep -c . "$jsl_sec_dir/${js_hash}.txt" 2>/dev/null || echo 0)
+                        [[ $jsl_urls -eq 0 ]] && rm -f "$jsl_urls_dir/${js_hash}.txt"
+                        [[ $jsl_sec  -eq 0 ]] && rm -f "$jsl_sec_dir/${js_hash}.txt"
+                    fi
+
+                    # LinkFinder — scan immediately after download
+                    python3 "${TOOLS:-$HOME/tools}/LinkFinder/linkfinder.py" \
+                        -i "$js_path" -o cli \
+                        > "$lf_dir/${js_hash}.txt" 2>/dev/null
+                    lf_count=$(wc -l < "$lf_dir/${js_hash}.txt" 2>/dev/null || echo 0)
+                    [[ $lf_count -eq 0 ]] && rm -f "$lf_dir/${js_hash}.txt"
+                fi
+
+                # Atomic counter increment
+                local n
+                n=$(
+                    (
+                        flock -x 9
+                        local v
+                        v=$(cat "$counter_file" 2>/dev/null || echo 0)
+                        v=$((v + 1))
+                        echo "$v" > "$counter_file"
+                        echo "$v"
+                    ) 9>"$lock_file"
+                )
+                printf '[JS %d/%d] %s → jsluice: %d urls %d secrets | lf: %d endpoints\n' \
+                    "$n" "$total" "$js_filename" "$jsl_urls" "$jsl_sec" "$lf_count"
+
             done < "$host_file"
         ) &
         [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL_DOWNLOAD ]] && wait -n 2>/dev/null
     done
-    wait_jobs "js-download"
+    wait_jobs "js-download-scan"
     rm -rf "$hosts_dir"
 
     # Append newly processed URLs to manifest
     sort -u "$js_download_input" >> "$seen_manifest"
     sort -u "$seen_manifest" -o "$seen_manifest"
-    rm -f "$outdir/js/js_new.txt"
+    rm -f "$outdir/js/js_new.txt" "$counter_file" "$lock_file"
 
-    # Count downloaded files
     local downloaded
     downloaded=$(find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | wc -l)
-    ok "Downloaded $downloaded JavaScript files"
+    ok "Downloaded and scanned $downloaded JavaScript files"
 
-    # Check for source maps (populated by categorize_step)
+    # Source maps
     info "Checking for source maps..."
     if [[ -s "$outdir/categorized/sourcemaps.txt" ]]; then
         local map_count
@@ -97,31 +150,12 @@ js_step() {
         cp "$outdir/categorized/sourcemaps.txt" "$outdir/js/analysis/sourcemaps.txt"
     fi
 
-    # Extract endpoints and secrets with jsluice (parallel)
-    info "Extracting endpoints and secrets..."
+    # Combine jsluice results from per-file temp dirs
     if command -v jsluice >/dev/null 2>&1; then
-        info "Running jsluice..."
+        cat "$jsl_urls_dir"/*.txt 2>/dev/null | sort -u > "$outdir/js/analysis/jsluice_urls.txt"
+        cat "$jsl_sec_dir"/*.txt  2>/dev/null          > "$outdir/js/analysis/jsluice_secrets.txt"
+        rm -rf "$jsl_urls_dir" "$jsl_sec_dir"
 
-        find "$outdir/js/files" -name "*.js" -size +0 -print0 2>/dev/null \
-            | xargs -0 -P "$MAX_PARALLEL" -I{} jsluice urls {} 2>/dev/null \
-            | jq -r '.url // empty' 2>/dev/null \
-            | sort -u > "$outdir/js/analysis/jsluice_urls.txt"
-
-        find "$outdir/js/files" -name "*.js" -size +0 -print0 2>/dev/null \
-            | xargs -0 -P "$MAX_PARALLEL" -I{} jsluice secrets {} 2>/dev/null \
-            > "$outdir/js/analysis/jsluice_secrets.txt"
-
-        [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]] && rm -f "$outdir/js/analysis/jsluice_urls.txt"
-
-        if [[ -s "$outdir/js/analysis/jsluice_secrets.txt" ]]; then
-            local jsluice_sec
-            jsluice_sec=$(wc -l < "$outdir/js/analysis/jsluice_secrets.txt")
-            warn "jsluice: $jsluice_sec potential secrets found"
-        else
-            rm -f "$outdir/js/analysis/jsluice_secrets.txt"
-        fi
-
-        # Scope-filter jsluice URLs to target domain
         if [[ -n "$domain" && -s "$outdir/js/analysis/jsluice_urls.txt" ]]; then
             local escaped_domain
             escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
@@ -129,34 +163,24 @@ js_step() {
                 "$outdir/js/analysis/jsluice_urls.txt" \
                 | sort -u > "$outdir/js/analysis/jsluice_urls_scope.txt"
             mv "$outdir/js/analysis/jsluice_urls_scope.txt" "$outdir/js/analysis/jsluice_urls.txt"
-            [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]] && rm -f "$outdir/js/analysis/jsluice_urls.txt"
         fi
 
+        [[ ! -s "$outdir/js/analysis/jsluice_urls.txt" ]]    && rm -f "$outdir/js/analysis/jsluice_urls.txt"
+        if [[ -s "$outdir/js/analysis/jsluice_secrets.txt" ]]; then
+            warn "jsluice: $(wc -l < "$outdir/js/analysis/jsluice_secrets.txt") potential secrets found"
+        else
+            rm -f "$outdir/js/analysis/jsluice_secrets.txt"
+        fi
         ok "jsluice found $(wc -l < "$outdir/js/analysis/jsluice_urls.txt" 2>/dev/null || echo 0) in-scope URLs"
     fi
 
-    # Extract endpoints with LinkFinder (parallel)
-    info "Running LinkFinder..."
-    local lf_tmpdir="$outdir/js/analysis/.lf_tmp"
-    ensure_dir "$lf_tmpdir"
-
-    find "$outdir/js/files" -name "*.js" -size +0 2>/dev/null | while read -r jsfile; do
-        (
-            local fname
-            fname=$(basename "$jsfile")
-            python3 "${TOOLS:-$HOME/tools}/LinkFinder/linkfinder.py" -i "$jsfile" -o cli \
-                > "$lf_tmpdir/$fname.txt" 2>/dev/null
-        ) &
-        [[ $(jobs -r -p | wc -l) -ge $MAX_PARALLEL ]] && wait -n 2>/dev/null
-    done
-    wait_jobs "linkfinder"
-
-    # Combine all LinkFinder results
-    cat "$lf_tmpdir"/*.txt 2>/dev/null | sort -fu > "$outdir/js/analysis/linkfinder.txt"
-    rm -rf "$lf_tmpdir"
+    # Combine LinkFinder results from per-file temp dirs
+    cat "$lf_dir"/*.txt 2>/dev/null | sort -fu > "$outdir/js/analysis/linkfinder.txt"
+    rm -rf "$lf_dir"
+    [[ ! -s "$outdir/js/analysis/linkfinder.txt" ]] && rm -f "$outdir/js/analysis/linkfinder.txt"
     ok "LinkFinder found $(wc -l < "$outdir/js/analysis/linkfinder.txt" 2>/dev/null || echo 0) endpoints"
 
-    # Scan for secrets with trufflehog
+    # Trufflehog — directory scan, runs after all files downloaded
     info "Scanning for secrets (trufflehog)..."
     trufflehog filesystem \
         --directory="$outdir/js/files" \
@@ -175,12 +199,11 @@ js_step() {
         ok "No verified secrets found"
     fi
 
-    # JShunter — JWT tokens, Firebase configs, GraphQL endpoints, hidden params
+    # JShunter — URL-list based, runs after all downloads complete
     if [[ "${ENABLE_JSHUNTER:-true}" == "true" ]] && command -v jshunter >/dev/null 2>&1; then
         info "Running JShunter (JWT/Firebase/GraphQL/params)..."
         local jh_raw="$outdir/js/analysis/jshunter_raw.json"
 
-        # Pass 1: JSON mode — JWT, Firebase, GraphQL
         jshunter -l "$js_input" \
             -j -fo -q -k \
             -t "$threads" -R 100 -T 30 -y 2 \
@@ -199,7 +222,6 @@ js_step() {
         fi
         rm -f "$jh_raw"
 
-        # Pass 2: plain text — hidden params
         jshunter -l "$js_input" \
             -fo -q -k \
             -t "$threads" -R 100 -T 30 -y 2 \
@@ -226,7 +248,6 @@ js_step() {
 
     ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
 
-    # Remove raw JS files — analysis results are in js/analysis/
     rm -rf "$outdir/js/files" "$outdir/js_limited.txt"
     ok "Cleaned up raw JS files to save storage"
 }

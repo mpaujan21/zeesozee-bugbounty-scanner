@@ -68,11 +68,14 @@ urls_step() {
 
     rm -rf "$tmpdir"
 
+    # Sort urls.txt in-place
+    sort -u "$outdir/urls.txt" -o "$outdir/urls.txt"
+
     ok "Found $(wc -l < "$outdir/urls.txt" 2>/dev/null || echo 0) unique URLs"
 
-    # Optimize with uro
-    info "Optimizing URLs with uro..."
-    uro -i "$outdir/urls.txt" -o "$outdir/urls_optimized.txt" 2>/dev/null
+    # Deduplicate by path (strip query string) via unfurl
+    info "Optimizing URLs with unfurl..."
+    unfurl format '%s://%d%p' < "$outdir/urls.txt" 2>/dev/null | sort -u > "$outdir/urls_optimized.txt"
 
-    ok "Optimized to $(wc -l < "$outdir/urls_optimized.txt" 2>/dev/null || echo 0) URLs"
+    ok "Optimized to $(wc -l < "$outdir/urls_optimized.txt" 2>/dev/null || echo 0) unique paths"
 }
