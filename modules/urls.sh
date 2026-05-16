@@ -54,24 +54,33 @@ urls_step() {
 
     info "katana: $(wc -l < "$tmpdir/katana.txt" 2>/dev/null || echo 0) URLs"
 
-    # Combine + scope filter in single pipeline
+    # Combine + scope filter
+    local raw_urls="$tmpdir/all_urls.txt"
     if [[ -n "$domain" ]]; then
         local escaped_domain
         escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
         sort -u "$tmpdir"/*.txt 2>/dev/null \
             | grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" \
-            > "$outdir/urls.txt"
-        info "Filtered to $(wc -l < "$outdir/urls.txt") in-scope URLs"
+            > "$raw_urls"
     else
-        sort -u "$tmpdir"/*.txt 2>/dev/null > "$outdir/urls.txt"
+        sort -u "$tmpdir"/*.txt 2>/dev/null > "$raw_urls"
     fi
+
+    local raw_count
+    raw_count=$(wc -l < "$raw_urls" 2>/dev/null || echo 0)
+    info "Collected $raw_count raw URLs, probing liveness..."
+
+    # Filter to live URLs only
+    httpx -silent -mc 200,301,302,401,403 \
+        -l "$raw_urls" \
+        -threads "$threads" \
+        -o "$outdir/urls.txt" 2>/dev/null || true
 
     rm -rf "$tmpdir"
 
-    # Sort urls.txt in-place
     sort -u "$outdir/urls.txt" -o "$outdir/urls.txt"
 
-    ok "Found $(wc -l < "$outdir/urls.txt" 2>/dev/null || echo 0) unique URLs"
+    ok "Found $(wc -l < "$outdir/urls.txt" 2>/dev/null || echo 0) live URLs"
 
     # Deduplicate by path (strip query string) via unfurl
     info "Optimizing URLs with unfurl..."
