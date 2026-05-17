@@ -15,6 +15,7 @@ findomain               # https://github.com/Findomain/Findomain/releases
 amass                   # go install github.com/owasp-amass/amass/v4/...@master
 chaos                   # go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest (requires CHAOS_PDCP_API_KEY)
 # crt.sh — no install needed, uses curl + jq (already in Core Dependencies)
+# rapiddns — no install needed, uses curl + grep (already in Core Dependencies)
 
 # DNS Resolution
 # --------------

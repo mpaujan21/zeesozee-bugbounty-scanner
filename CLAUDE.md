@@ -26,7 +26,7 @@ lib/
   colors.sh          # Terminal output helpers (info, ok, warn, err, banner)
   utils.sh           # Utilities (ensure_dir, prompt_yn, run)
 modules/
-  subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos, crt.sh) + recursive enum
+  subdomains.sh      # Passive enumeration (subfinder -all, assetfinder, findomain, amass, chaos, crt.sh, rapiddns) + recursive enum
   probing.sh         # HTTP probing with httpx, outputs httpx.txt + clean_httpx.txt
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, katana)
@@ -80,6 +80,7 @@ modules/
 - `ENABLE_JSHUNTER`: Enable JShunter JS analysis (JWT/Firebase/GraphQL/params, default: true)
 - `ENABLE_CHAOS`: Enable Chaos dataset source (default: true, requires `CHAOS_PDCP_API_KEY`)
 - `ENABLE_CRTSH`: Enable crt.sh Certificate Transparency log query (default: true, requires `curl` + `jq`)
+- `ENABLE_RAPIDDNS`: Enable rapiddns.io passive DNS lookup (default: true, requires `curl` + `grep`)
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
 

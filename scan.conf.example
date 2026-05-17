@@ -16,6 +16,9 @@ ENABLE_AMASS=true
 # Certificate transparency lookup
 ENABLE_CRTSH=true
 
+# RapidDNS passive lookup (no API key, HTML scrape)
+ENABLE_RAPIDDNS=true
+
 # ============================================
 # PERMUTATION TOOLS (if enabled)
 # ============================================

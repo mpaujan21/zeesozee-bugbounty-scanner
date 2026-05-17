@@ -117,6 +117,23 @@ subdomains_step() {
             touch "$tmpdir/crtsh.txt"
         fi
 
+        if is_tool_enabled "ENABLE_RAPIDDNS"; then
+            info "Querying RapidDNS"
+            (
+                _esc_dom=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
+                curl -s --max-time 30 \
+                    "https://rapiddns.io/subdomain/${domain}?full=1" \
+                    2>/dev/null \
+                | grep -oP "(?<=<td>)[a-zA-Z0-9._-]+\\.${_esc_dom}(?=</td>)" \
+                | grep -v "^$" \
+                | sed 's/^/[rapiddns] /' \
+                | sort -u > "$tmpdir/rapiddns.txt"
+            ) &
+        else
+            info "Skipping RapidDNS (disabled in config)"
+            touch "$tmpdir/rapiddns.txt"
+        fi
+
         wait_jobs "subdomains"
     )
 

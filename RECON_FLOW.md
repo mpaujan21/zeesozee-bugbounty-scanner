@@ -22,6 +22,7 @@ All tools run **in parallel**:
 | `amass enum -passive` | passive | |
 | `chaos` | passive | requires `CHAOS_PDCP_API_KEY` |
 | `crt.sh` API | passive | Certificate Transparency logs, no API key needed, `curl` + `jq` only |
+| `rapiddns.io` | passive | DNS dataset, no API key needed, `curl` + `grep` only |
 
 **Post-combine:**
 1. Strip tool prefixes (`[subfinder]`, etc.) → dedup → `subdomains.txt`
