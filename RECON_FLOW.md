@@ -47,18 +47,27 @@ All tools run **in parallel**:
 
 ---
 
-## Step 3 — Smap Passive Port Scan *(optional, `--yes-smap y`)*
+## Step 3 — Port Scanning *(optional, `--yes-smap y`)*
 
-Queries Shodan's existing scan data — **zero packets sent to target**.
+Two-phase: passive Shodan lookup first, then active rustscan on discovered hosts.
+
+### Phase 1 — Smap (passive, zero packets sent)
 
 1. Extracts unique hostnames from `clean_httpx.txt`
 2. `smap -iL targets -oG` — fetches port/service data from Shodan index
 3. Parses greppable output → `host:port` pairs → `ports/smap_open.txt`
 4. `httpx` probes discovered ports for HTTP services → `ports/smap_http.txt`
 
-**Outputs:** `ports/smap_open.txt`, `ports/smap_http.txt`, `ports/smap_greppable.txt`
+### Phase 2 — Rustscan (active, top 1000 ports)
 
-> Note: Shodan data may be weeks old. Use as passive complement, not replacement for active scanning.
+1. Extracts unique hosts from `ports/smap_open.txt`
+2. `rustscan -a hosts --top --no-banner -g` — active TCP connect scan
+3. Parses greppable output → `host:port` pairs → `ports/rustscan_open.txt`
+4. `httpx` probes newly discovered ports → `ports/rustscan_http.txt`
+
+> Rustscan skipped if not installed or smap found no results.
+
+**Outputs:** `ports/smap_open.txt`, `ports/smap_http.txt`, `ports/smap_greppable.txt`, `ports/rustscan_open.txt`, `ports/rustscan_http.txt`
 
 ---
 

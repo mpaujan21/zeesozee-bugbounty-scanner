@@ -74,5 +74,64 @@ smap_step() {
         info "No HTTP services found on discovered ports"
     fi
 
-    ok "Smap scan completed"
+    # Active verification: rustscan top 1000 ports on smap-discovered hosts
+    if command -v rustscan >/dev/null 2>&1; then
+        if [[ -s "$outdir/ports/smap_open.txt" ]]; then
+            info "Running rustscan (active, top 1000 ports) on smap-discovered hosts..."
+
+            local rs_targets rs_raw
+            rs_targets=$(mktemp)
+            rs_raw=$(mktemp)
+
+            cut -d: -f1 "$outdir/ports/smap_open.txt" | sort -u > "$rs_targets"
+            local rs_host_count
+            rs_host_count=$(wc -l < "$rs_targets")
+            info "Rustscan targeting $rs_host_count hosts..."
+
+            rustscan -a "$rs_targets" --top --no-banner -g --ulimit 5000 \
+                2>/dev/null > "$rs_raw" || true
+
+            rm -f "$rs_targets"
+
+            if [[ -s "$rs_raw" ]]; then
+                awk '{
+                    host = $1
+                    if (match($0, /\[([^]]+)\]/, arr)) {
+                        n = split(arr[1], ports, ",")
+                        for (i = 1; i <= n; i++) {
+                            gsub(/[[:space:]]/, "", ports[i])
+                            print host ":" ports[i]
+                        }
+                    }
+                }' "$rs_raw" | sort -u > "$outdir/ports/rustscan_open.txt"
+
+                local rs_count
+                rs_count=$(wc -l "$outdir/ports/rustscan_open.txt" 2>/dev/null | awk '{print $1}'); rs_count=${rs_count:-0}
+                ok "Rustscan found $rs_count open ports"
+
+                if [[ $rs_count -gt 0 ]]; then
+                    info "Probing rustscan ports for HTTP services..."
+                    httpx -l "$outdir/ports/rustscan_open.txt" \
+                        -silent -nc \
+                        -title -tech-detect -status-code -web-server \
+                        -timeout 10 \
+                        -o "$outdir/ports/rustscan_http.txt" > /dev/null 2>&1
+
+                    if [[ -s "$outdir/ports/rustscan_http.txt" ]]; then
+                        ok "Found $(wc -l < "$outdir/ports/rustscan_http.txt") HTTP services via rustscan"
+                    fi
+                fi
+            else
+                info "Rustscan found no open ports"
+            fi
+
+            rm -f "$rs_raw"
+        else
+            info "No smap results to feed rustscan"
+        fi
+    else
+        warn "rustscan not installed, skipping active port verification"
+    fi
+
+    ok "Port scan completed (smap passive + rustscan active)"
 }
