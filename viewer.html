@@ -285,8 +285,7 @@ async function buildDashboard() {
   const panels = [
     { id: 'subdomains',  label: `Subdomains (${subdomains.length})`,  render: () => renderSubdomains(subdomains, hostData, liveHosts, takeovers, cnames) },
     { id: 'urls',        label: `URLs (${fmt(urlsOptimized.length)})`, render: () => renderSearchable('Optimized URLs', urlsOptimized, true) },
-    { id: 'params',      label: `Params (${fmt(params.length)})`,     render: () => renderSearchable('Hidden Parameters', params) },
-    { id: 'jsfiles',     label: 'JS Files',                           render: () => renderJsFiles(secrets, jwts, graphql, endpoints, catSourcemaps, jsUrlMap) },
+    { id: 'jsfiles',     label: 'JS Files',                           render: () => renderJsFiles(secrets, jwts, graphql, endpoints, catSourcemaps, jsUrlMap, params) },
     { id: 'categorized', label: 'Categorized',                        render: () => renderCategorized(keypairs, paths, jsonFiles, catSourcemaps) },
     { id: 'ports',       label: `Ports (${smapPorts.length + rustPorts.length})`, render: () => renderPorts(smapPorts, smapHttp, rustPorts, rustHttp) },
     { id: 'delta',       label: 'Delta',                              render: () => renderDelta(delta) },
@@ -399,7 +398,7 @@ function renderSubdomains(subdomains, hostData, liveHosts, takeovers, cnames) {
     </div>`;
 }
 
-function renderJsFiles(secrets, jwts, graphql, endpoints, sourcemaps, jsUrlMap) {
+function renderJsFiles(secrets, jwts, graphql, endpoints, sourcemaps, jsUrlMap, params) {
   return `
     <div class="section">
       <div class="section-title">Secrets / Credentials <span class="count">${secrets.length}</span></div>
@@ -427,6 +426,10 @@ function renderJsFiles(secrets, jwts, graphql, endpoints, sourcemaps, jsUrlMap) 
     <div class="section">
       <div class="section-title">Source Maps <span class="count">${sourcemaps.length}</span></div>
       ${sourcemaps.length ? `<div class="code-list" style="max-height:200px">${sourcemaps.map(s => `<div class="item"><a href="${esc(s)}" target="_blank" style="color:var(--yellow)">${esc(s)}</a></div>`).join('')}</div>` : '<div class="empty">None found</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">Hidden Parameters <span class="count">${params ? params.length : 0}</span></div>
+      ${params && params.length ? paginatedList(params, 'param', 100) : '<div class="empty">None found</div>'}
     </div>
     <div class="section">
       <div class="section-title">Discovered Endpoints <span class="count">${endpoints.length}</span></div>

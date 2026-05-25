@@ -55,36 +55,36 @@ urls_step() {
     info "katana: $(wc -l < "$tmpdir/katana.txt" 2>/dev/null || echo 0) URLs"
 
     # Combine + scope filter
-    local raw_urls="$tmpdir/all_urls.txt"
+    # Save all scoped URLs (including dead) to urls.txt
     if [[ -n "$domain" ]]; then
         local escaped_domain
         escaped_domain=$(printf '%s' "$domain" | sed 's/[.[\*^$()+?{}|]/\\&/g')
         sort -u "$tmpdir"/*.txt 2>/dev/null \
             | grep -E "https?://([^/]*\.)?${escaped_domain}(/|$|:)" \
-            > "$raw_urls"
+            > "$outdir/urls.txt"
     else
-        sort -u "$tmpdir"/*.txt 2>/dev/null > "$raw_urls"
+        sort -u "$tmpdir"/*.txt 2>/dev/null > "$outdir/urls.txt"
     fi
 
     local raw_count
-    raw_count=$(wc -l < "$raw_urls" 2>/dev/null || echo 0)
-    info "Collected $raw_count raw URLs, probing liveness..."
+    raw_count=$(wc -l < "$outdir/urls.txt" 2>/dev/null || echo 0)
+    info "Collected $raw_count total URLs, probing liveness..."
 
     # Filter to live URLs only
     httpx -silent -mc 200,301,302,401,403 \
-        -l "$raw_urls" \
+        -l "$outdir/urls.txt" \
         -threads "$threads" \
-        -o "$outdir/urls.txt" 2>/dev/null || true
+        -o "$outdir/urls_live.txt" 2>/dev/null || true
 
     rm -rf "$tmpdir"
 
-    sort -u "$outdir/urls.txt" -o "$outdir/urls.txt"
+    sort -u "$outdir/urls_live.txt" -o "$outdir/urls_live.txt"
 
-    ok "Found $(wc -l < "$outdir/urls.txt" 2>/dev/null || echo 0) live URLs"
+    ok "Found $(wc -l < "$outdir/urls_live.txt" 2>/dev/null || echo 0) live URLs"
 
-    # Deduplicate by path (strip query string) via unfurl
+    # Deduplicate live URLs by path (strip query string) via unfurl
     info "Optimizing URLs with unfurl..."
-    unfurl format '%s://%d%p' < "$outdir/urls.txt" 2>/dev/null | sort -u > "$outdir/urls_optimized.txt"
+    unfurl format '%s://%d%p' < "$outdir/urls_live.txt" 2>/dev/null | sort -u > "$outdir/urls_optimized.txt"
 
     ok "Optimized to $(wc -l < "$outdir/urls_optimized.txt" 2>/dev/null || echo 0) unique paths"
 }

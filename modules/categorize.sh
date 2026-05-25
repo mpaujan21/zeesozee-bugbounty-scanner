@@ -5,7 +5,7 @@ categorize_step() {
     local outdir="$1"
     ok "Categorizing URLs..."
 
-    [[ -s "$outdir/urls_optimized.txt" ]] || { warn "No URLs found; skipping categorization."; return; }
+    [[ -s "$outdir/urls.txt" ]] || { warn "No URLs found; skipping categorization."; return; }
 
     ensure_dir "$outdir/categorized"
 
@@ -18,7 +18,9 @@ categorize_step() {
     unfurl --unique keypairs < "$outdir/urls.txt" | sort -u > "$outdir/categorized/keypairs.txt" 2>/dev/null
     unfurl --unique format %d%p < "$outdir/urls.txt" | sort -u > "$outdir/categorized/paths.txt" 2>/dev/null
 
-    # Extract JS and JSON file URLs
+    # Extract JS and JSON file URLs (live only — needed for download)
+    local url_src="$outdir/urls_live.txt"
+    [[ -s "$url_src" ]] || url_src="$outdir/urls.txt"
     info "Extracting JS and JSON file URLs..."
     awk -F'?' '
         tolower($0) ~ /\.js($|\?)/ { js[tolower($0)] = $0 }
@@ -29,7 +31,7 @@ categorize_step() {
             for (url in json) print json[url] > "'"$outdir"'/categorized/json_files.txt"
             for (url in map)  print map[url]  > "'"$outdir"'/categorized/sourcemaps.txt"
         }
-    ' "$outdir/urls.txt" 2>/dev/null
+    ' "$url_src" 2>/dev/null
     sort -u "$outdir/js_unsorted.txt" > "$outdir/js.txt" 2>/dev/null
     rm -f "$outdir/js_unsorted.txt"
 
