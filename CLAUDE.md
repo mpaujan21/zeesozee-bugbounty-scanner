@@ -31,7 +31,7 @@ modules/
   permutation.sh     # Subdomain permutation (alterx, dnsgen, gotator) + DNS resolution
   urls.sh            # URL discovery (waybackurls, waymore, katana)
   categorize.sh      # GF pattern matching + unfurl extraction
-  js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder)
+  js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder), secrets scan (trufflehog, titus)
   smap.sh            # Passive port scan via Shodan data + active rustscan + nerva service fingerprinting (optional)
   takeover.sh        # Subdomain takeover detection via dangling CNAME fingerprints
   screenshots.sh     # Screenshot capture with gowitness
@@ -84,6 +84,8 @@ modules/
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
 - `ENABLE_NERVA`: Enable nerva service fingerprinting (incl. misconfig checks) on smap/rustscan-discovered open ports (default: true, requires `nerva` + `jq`)
+- `ENABLE_TITUS`: Enable Titus secrets scan (487 rules + risk scoring, runs alongside trufflehog) on downloaded JS files (default: true, requires `titus` + `jq`)
+- `ENABLE_TITUS_VALIDATE`: Validate Titus-detected secrets against source APIs (default: false — opt-in, sends outbound API calls)
 
 ## Required External Tools
 
@@ -93,4 +95,5 @@ Probing: httpx, ffuf (optional, for vhost)
 URLs: waybackurls, waymore, katana, unfurl
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter
+Optional secrets: titus (487-rule scanner with risk scoring, runs alongside trufflehog)
 Optional: gowitness (screenshots), smap + rustscan (port scan), nerva (service fingerprinting)

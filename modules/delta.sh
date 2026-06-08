@@ -22,6 +22,7 @@ delta_step() {
         ["open_ports"]="ports/naabu_output.txt"
         ["js_endpoints"]="js/analysis/all_endpoints.txt"
         ["secrets"]="js/analysis/trufflehog.txt"
+        ["titus_secrets"]="js/analysis/titus.txt"
         ["takeovers"]="takeover/potential_takeovers.txt"
     )
 

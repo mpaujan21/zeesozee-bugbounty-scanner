@@ -31,7 +31,7 @@ report_step() {
     # Gather all stats
     local subdomains_total subdomains_live urls_total urls_optimized
     local js_files ports_open nerva_services nerva_misconfigs
-    local secrets_found endpoints_found permutation_new
+    local secrets_found titus_secrets endpoints_found permutation_new
 
     local takeover_count screenshots_count
     takeover_count=$(grep -c '^\[VULNERABLE\]' "$outdir/takeover/potential_takeovers.txt" 2>/dev/null) || takeover_count=0
@@ -46,6 +46,7 @@ report_step() {
     nerva_services=$(count_lines "$outdir/ports/nerva.txt")
     nerva_misconfigs=$(count_lines "$outdir/ports/nerva_misconfigs.txt")
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")
+    titus_secrets=$(count_lines "$outdir/js/analysis/titus.txt")
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
     jshunter_jwt=$(count_lines "$outdir/js/analysis/jshunter_jwt.txt")
@@ -74,6 +75,7 @@ report_step() {
     "js_files": $js_files,
     "endpoints_found": $endpoints_found,
     "secrets_found": $secrets_found,
+    "titus_secrets": $titus_secrets,
     "jwt_tokens": $jshunter_jwt,
     "firebase_configs": $jshunter_firebase,
     "graphql_endpoints": $jshunter_graphql,
@@ -83,6 +85,7 @@ report_step() {
   },
   "high_priority": {
     "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
+    "has_titus_secrets": $([ "$titus_secrets" -gt 0 ] && echo "true" || echo "false"),
     "has_firebase": $([ "$jshunter_firebase" -gt 0 ] && echo "true" || echo "false"),
     "has_jwt": $([ "$jshunter_jwt" -gt 0 ] && echo "true" || echo "false"),
     "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false"),
@@ -107,6 +110,7 @@ EOF
     [[ $takeover_count -gt 0 ]] && echo "  ⚠ TAKEOVERS FOUND: $takeover_count"
     [[ $nerva_misconfigs -gt 0 ]] && echo "  ⚠ MISCONFIGS FOUND: $nerva_misconfigs"
     [[ $secrets_found -gt 0 ]] && echo "  ⚠ SECRETS FOUND: $secrets_found"
+    [[ $titus_secrets -gt 0 ]] && echo "  ⚠ TITUS SECRETS FOUND: $titus_secrets"
     [[ $screenshots_count -gt 0 ]] && echo "  Screenshots: $screenshots_count"
     echo "════════════════════════════════════════════════════════════"
     echo "  Report: $report_json"

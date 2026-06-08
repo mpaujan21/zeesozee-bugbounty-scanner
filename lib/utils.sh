@@ -192,6 +192,8 @@ set_default_config() {
   export ENABLE_SCREENSHOTS="${ENABLE_SCREENSHOTS:-true}"
   export ENABLE_JSHUNTER="${ENABLE_JSHUNTER:-true}"
   export ENABLE_NERVA="${ENABLE_NERVA:-true}"
+  export ENABLE_TITUS="${ENABLE_TITUS:-true}"
+  export ENABLE_TITUS_VALIDATE="${ENABLE_TITUS_VALIDATE:-false}"
 
   # Delta/snapshot settings
   export MAX_SNAPSHOTS="${MAX_SNAPSHOTS:-5}"

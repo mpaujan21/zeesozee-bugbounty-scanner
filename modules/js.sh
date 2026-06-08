@@ -199,6 +199,44 @@ js_step() {
         ok "No verified secrets found"
     fi
 
+    # Titus — secrets scan with 487 rules + risk scoring (alongside trufflehog)
+    if command -v titus >/dev/null 2>&1 && is_tool_enabled ENABLE_TITUS; then
+        info "Scanning for secrets (titus, 487 rules)..."
+        local titus_ds="$outdir/js/analysis/titus.ds"
+        local titus_validate=()
+        is_tool_enabled ENABLE_TITUS_VALIDATE && titus_validate=(--validate)
+
+        # scan --format json dumps raw matches (no Score/file_path); severity lives
+        # on Finding.Score, only surfaced via `report --format json` — so two steps.
+        titus scan "$outdir/js/files" \
+            --datastore "$titus_ds" \
+            "${titus_validate[@]}" \
+            2>/dev/null >/dev/null
+        titus report --datastore "$titus_ds" --format json \
+            2>/dev/null > "$outdir/js/analysis/titus.json"
+
+        if [[ -s "$outdir/js/analysis/titus.json" ]]; then
+            jq -r '.[] |
+                (.Score.SuggestedSeverity // "unknown") as $sev |
+                (.Score.Final // 0) as $score |
+                (.Matches[0].RuleName // .RuleID) as $rule |
+                (.Matches[0].FilePath // "unknown") as $file |
+                (.Matches[0].validation_result.status // "unvalidated") as $val |
+                "\($rule): \($sev)/\($score) in \($file) [\($val)]"' \
+                "$outdir/js/analysis/titus.json" 2>/dev/null \
+                | sort -u > "$outdir/js/analysis/titus.txt"
+            [[ ! -s "$outdir/js/analysis/titus.txt" ]] && rm -f "$outdir/js/analysis/titus.txt"
+            local titus_count
+            titus_count=$(wc -l < "$outdir/js/analysis/titus.txt" 2>/dev/null || echo 0)
+            [[ $titus_count -gt 0 ]] && warn "Titus: $titus_count potential secrets found!" \
+                                     || ok "Titus: no secrets found"
+        else
+            rm -f "$outdir/js/analysis/titus.json"
+            ok "Titus: no secrets found"
+        fi
+        rm -rf "$titus_ds"
+    fi
+
     # JShunter — URL-list based, runs after all downloads complete
     if [[ "${ENABLE_JSHUNTER:-true}" == "true" ]] && command -v jshunter >/dev/null 2>&1; then
         info "Running JShunter (JWT/Firebase/GraphQL/params)..."
