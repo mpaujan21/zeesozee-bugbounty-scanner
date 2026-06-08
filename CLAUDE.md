@@ -32,7 +32,7 @@ modules/
   urls.sh            # URL discovery (waybackurls, waymore, katana)
   categorize.sh      # GF pattern matching + unfurl extraction
   js.sh              # JS download, beautification, endpoint extraction (jsluice, LinkFinder)
-  smap.sh            # Passive port scan via Shodan data (optional, no active probes)
+  smap.sh            # Passive port scan via Shodan data + active rustscan + nerva service fingerprinting (optional)
   takeover.sh        # Subdomain takeover detection via dangling CNAME fingerprints
   screenshots.sh     # Screenshot capture with gowitness
   delta.sh           # Delta/diff scanning — highlights new findings between scans
@@ -83,6 +83,7 @@ modules/
 - `ENABLE_RAPIDDNS`: Enable rapiddns.io passive DNS lookup (default: true, requires `curl` + `grep`)
 - `ENABLE_RECURSIVE_ENUM`: Re-run subfinder on high-value zones (dev/staging/internal/etc.) found in initial pass (default: true)
 - `RECURSIVE_ENUM_MAX_ZONES`: Max zones to recurse into (default: 5)
+- `ENABLE_NERVA`: Enable nerva service fingerprinting (incl. misconfig checks) on smap/rustscan-discovered open ports (default: true, requires `nerva` + `jq`)
 
 ## Required External Tools
 
@@ -92,4 +93,4 @@ Probing: httpx, ffuf (optional, for vhost)
 URLs: waybackurls, waymore, katana, unfurl
 Categorization: gf, unfurl
 JS: curl, prettier, jsluice, trufflehog, python3 + LinkFinder, jshunter
-Optional: gowitness (screenshots)
+Optional: gowitness (screenshots), smap + rustscan (port scan), nerva (service fingerprinting)

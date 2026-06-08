@@ -191,7 +191,7 @@ fi
 if [[ "$YES_SMAP" == "y" ]]; then
     next_step "Smap Passive Port Scan"
     if ! is_completed "smap"; then
-        smap_step "$(pwd)" && mark_completed "smap"
+        smap_step "$(pwd)" "$THREADS" && mark_completed "smap"
     else
         info "Skipping Smap scan (already completed)"
     fi

@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 smap_step() {
-    local outdir="$1"
+    local outdir="$1" threads="${2:-50}"
 
     if [[ ! -s "$outdir/clean_httpx.txt" ]]; then
         warn "No live hosts found; skipping Smap scan."
@@ -133,5 +133,56 @@ smap_step() {
         warn "rustscan not installed, skipping active port verification"
     fi
 
-    ok "Port scan completed (smap passive + rustscan active)"
+    # Service fingerprinting: identify non-HTTP services on all discovered open ports
+    if command -v nerva >/dev/null 2>&1 && is_tool_enabled ENABLE_NERVA; then
+        local nerva_targets
+        nerva_targets=$(mktemp)
+        cat "$outdir/ports/smap_open.txt" "$outdir/ports/rustscan_open.txt" 2>/dev/null \
+            | sort -u > "$nerva_targets"
+
+        if [[ -s "$nerva_targets" ]]; then
+            local nerva_count
+            nerva_count=$(wc -l < "$nerva_targets")
+            info "Fingerprinting $nerva_count services with nerva (incl. misconfig checks)..."
+
+            # NOTE: nerva --json writes JSONL (one `Service` object per line, not
+            # a JSON array): {host,ip,port,protocol,version,metadata,security_findings}
+            nerva -l "$nerva_targets" --misconfigs --json \
+                -o "$outdir/ports/nerva.json" -W "$threads" \
+                2>/dev/null || true
+
+            if [[ -s "$outdir/ports/nerva.json" ]]; then
+                jq -r '"\(.host // .ip):\(.port)\t\(.protocol)\t\(.version // "")"' \
+                    "$outdir/ports/nerva.json" 2>/dev/null \
+                    | sort -u > "$outdir/ports/nerva.txt" || true
+
+                jq -r '
+                    select(.security_findings != null and (.security_findings | length) > 0) as $svc
+                    | $svc.security_findings[]
+                    | "\($svc.host // $svc.ip):\($svc.port)\t\(.severity)\t\(.id)\t\(.description)"
+                ' "$outdir/ports/nerva.json" 2>/dev/null \
+                    | sort -u > "$outdir/ports/nerva_misconfigs.txt" || true
+            fi
+
+            if [[ -s "$outdir/ports/nerva.txt" ]]; then
+                ok "Nerva fingerprinted $(wc -l < "$outdir/ports/nerva.txt") services"
+            else
+                info "Nerva returned no fingerprinted services"
+            fi
+
+            if [[ -s "$outdir/ports/nerva_misconfigs.txt" ]]; then
+                ok "Nerva flagged $(wc -l < "$outdir/ports/nerva_misconfigs.txt") security misconfigurations"
+            else
+                info "Nerva found no security misconfigurations"
+            fi
+        else
+            info "No open ports to fingerprint with nerva"
+        fi
+
+        rm -f "$nerva_targets"
+    else
+        warn "nerva not installed or disabled, skipping service fingerprinting"
+    fi
+
+    ok "Port scan completed (smap passive + rustscan active + nerva fingerprinting)"
 }

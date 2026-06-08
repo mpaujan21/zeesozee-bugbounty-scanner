@@ -213,7 +213,7 @@ async function buildDashboard() {
          secretsRaw, endpoints, jwts, graphql, params,
          keypairs, paths, catSourcemaps, jsonFiles, takeovers, cnames,
          urlsOptimized, jsUrls, smapPorts, smapHttp,
-         rustPorts, rustHttp] = await Promise.all([
+         rustPorts, rustHttp, nervaServices, nervaMisconfigs] = await Promise.all([
     readJSON('report.json'),
     readJSON('delta.json'),
     readLines('subdomains.txt'),
@@ -236,6 +236,8 @@ async function buildDashboard() {
     readLines('ports/smap_http.txt'),
     readLines('ports/rustscan_open.txt'),
     readLines('ports/rustscan_http.txt'),
+    readLines('ports/nerva.txt'),
+    readLines('ports/nerva_misconfigs.txt'),
   ]);
 
   const info = report?.scan_info || {};
@@ -287,7 +289,7 @@ async function buildDashboard() {
     { id: 'urls',        label: `URLs (${fmt(urlsOptimized.length)})`, render: () => renderSearchable('Optimized URLs', urlsOptimized, true) },
     { id: 'jsfiles',     label: 'JS Files',                           render: () => renderJsFiles(secrets, jwts, graphql, endpoints, catSourcemaps, jsUrlMap, params) },
     { id: 'categorized', label: 'Categorized',                        render: () => renderCategorized(keypairs, paths, jsonFiles, catSourcemaps) },
-    { id: 'ports',       label: `Ports (${smapPorts.length + rustPorts.length})`, render: () => renderPorts(smapPorts, smapHttp, rustPorts, rustHttp) },
+    { id: 'ports',       label: `Ports (${smapPorts.length + rustPorts.length})`, render: () => renderPorts(smapPorts, smapHttp, rustPorts, rustHttp, nervaServices, nervaMisconfigs) },
     { id: 'delta',       label: 'Delta',                              render: () => renderDelta(delta) },
   ];
 
@@ -532,8 +534,34 @@ function renderHttpTable(httpLines) {
   }).join('');
 }
 
-function renderPorts(smapPorts, smapHttp, rustPorts, rustHttp) {
-  if (!smapPorts.length && !smapHttp.length && !rustPorts.length && !rustHttp.length) {
+function renderNervaTable(nervaLines) {
+  return nervaLines.map(line => {
+    const [hostport, service, version] = line.split('\t');
+    return `<tr>
+      <td>${esc(hostport || line)}</td>
+      <td><span class="badge sother">${esc(service || 'unknown')}</span></td>
+      <td style="color:var(--muted);font-size:11px">${esc(version || '')}</td>
+    </tr>`;
+  }).join('');
+}
+
+const SEVERITY_BADGE = { critical: 's500', high: 's500', medium: 's401', low: 'sother', info: 'sother' };
+
+function renderNervaMisconfigTable(lines) {
+  return lines.map(line => {
+    const [hostport, severity, id, description] = line.split('\t');
+    const sevCls = SEVERITY_BADGE[(severity || '').toLowerCase()] || 'sother';
+    return `<tr>
+      <td>${esc(hostport || line)}</td>
+      <td><span class="badge ${sevCls}">${esc(severity || 'info')}</span></td>
+      <td>${esc(id || '')}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(description || '')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPorts(smapPorts, smapHttp, rustPorts, rustHttp, nervaServices, nervaMisconfigs) {
+  if (!smapPorts.length && !smapHttp.length && !rustPorts.length && !rustHttp.length && !nervaServices.length && !nervaMisconfigs.length) {
     return '<div class="empty">No port scan data found. Run scan with --yes-smap y</div>';
   }
 
@@ -572,6 +600,21 @@ function renderPorts(smapPorts, smapHttp, rustPorts, rustHttp) {
           <thead><tr><th>URL</th><th>Status</th><th>Details</th></tr></thead>
           <tbody>${rustHttpRows}</tbody>
         </table>` : '<div class="empty">No HTTP services on rustscan-discovered ports</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title" style="font-size:13px;margin-bottom:4px">🛰️ Nerva — Service Fingerprinting (incl. misconfig checks)</div>
+      <div class="section-title">Fingerprinted Services <span class="count">${nervaServices.length}</span></div>
+      ${nervaServices.length ? `
+        <table class="tbl">
+          <thead><tr><th>Host:Port</th><th>Service</th><th>Version</th></tr></thead>
+          <tbody>${renderNervaTable(nervaServices)}</tbody>
+        </table>` : '<div class="empty">No fingerprinted services (nerva not installed or no open ports to scan)</div>'}
+      <div class="section-title" style="margin-top:12px">Security Misconfigurations <span class="count">${nervaMisconfigs.length}</span></div>
+      ${nervaMisconfigs.length ? `
+        <table class="tbl">
+          <thead><tr><th>Host:Port</th><th>Severity</th><th>ID</th><th>Description</th></tr></thead>
+          <tbody>${renderNervaMisconfigTable(nervaMisconfigs)}</tbody>
+        </table>` : '<div class="empty">No misconfigurations flagged</div>'}
     </div>`;
 }
 

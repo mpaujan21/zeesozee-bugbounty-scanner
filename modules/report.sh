@@ -30,7 +30,7 @@ report_step() {
 
     # Gather all stats
     local subdomains_total subdomains_live urls_total urls_optimized
-    local js_files ports_open
+    local js_files ports_open nerva_services nerva_misconfigs
     local secrets_found endpoints_found permutation_new
 
     local takeover_count screenshots_count
@@ -42,7 +42,9 @@ report_step() {
     urls_total=$(count_lines "$outdir/urls.txt")
     urls_optimized=$(count_lines "$outdir/urls_optimized.txt")
     js_files=$(count_lines "$outdir/js.txt")
-    ports_open=$(count_lines "$outdir/ports/httpx_ports.txt")
+    ports_open=$(cat "$outdir/ports/smap_open.txt" "$outdir/ports/rustscan_open.txt" 2>/dev/null | sort -u | wc -l)
+    nerva_services=$(count_lines "$outdir/ports/nerva.txt")
+    nerva_misconfigs=$(count_lines "$outdir/ports/nerva_misconfigs.txt")
     secrets_found=$(count_lines "$outdir/js/analysis/trufflehog.txt")
     endpoints_found=$(count_lines "$outdir/js/analysis/all_endpoints.txt")
     permutation_new=$(count_lines "$outdir/permutations/live.txt")
@@ -65,6 +67,8 @@ report_step() {
     "subdomains_live": $subdomains_live,
     "permutation_new": $permutation_new,
     "ports_open": $ports_open,
+    "nerva_services": $nerva_services,
+    "nerva_misconfigs": $nerva_misconfigs,
     "urls_total": $urls_total,
     "urls_optimized": $urls_optimized,
     "js_files": $js_files,
@@ -81,7 +85,8 @@ report_step() {
     "has_secrets": $([ "$secrets_found" -gt 0 ] && echo "true" || echo "false"),
     "has_firebase": $([ "$jshunter_firebase" -gt 0 ] && echo "true" || echo "false"),
     "has_jwt": $([ "$jshunter_jwt" -gt 0 ] && echo "true" || echo "false"),
-    "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false")
+    "has_takeovers": $([ "$takeover_count" -gt 0 ] && echo "true" || echo "false"),
+    "has_misconfigs": $([ "$nerva_misconfigs" -gt 0 ] && echo "true" || echo "false")
   }
 }
 EOF
@@ -95,10 +100,12 @@ EOF
     echo "════════════════════════════════════════════════════════════"
     echo "  Subdomains: $subdomains_live live / $subdomains_total total"
     echo "  URLs: $urls_optimized optimized / $urls_total total"
-    echo "  HTTP on non-std ports: $ports_open"
+    echo "  Open ports: $ports_open"
+    echo "  Fingerprinted services: $nerva_services"
     echo "  JS Files: $js_files"
     echo "  Endpoints: $endpoints_found"
     [[ $takeover_count -gt 0 ]] && echo "  ⚠ TAKEOVERS FOUND: $takeover_count"
+    [[ $nerva_misconfigs -gt 0 ]] && echo "  ⚠ MISCONFIGS FOUND: $nerva_misconfigs"
     [[ $secrets_found -gt 0 ]] && echo "  ⚠ SECRETS FOUND: $secrets_found"
     [[ $screenshots_count -gt 0 ]] && echo "  Screenshots: $screenshots_count"
     echo "════════════════════════════════════════════════════════════"
