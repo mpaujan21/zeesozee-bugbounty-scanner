@@ -9,17 +9,29 @@ js_step() {
 
     [[ -s "$outdir/js.txt" ]] || { warn "No JS URLs collected; skipping JS analysis."; return; }
 
+    local js_filtered="$outdir/js.txt"
+    if [[ -s "$outdir/urls_live.txt" ]]; then
+        local _jf="$outdir/js_live.txt"
+        grep -Fxf "$outdir/urls_live.txt" "$outdir/js.txt" | sort -u > "$_jf" 2>/dev/null || true
+        if [[ -s "$_jf" ]]; then
+            info "JS: $(wc -l < "$outdir/js.txt") total → $(wc -l < "$_jf") live URLs (filtered via urls_live.txt)"
+            js_filtered="$_jf"
+        else
+            rm -f "$_jf"
+        fi
+    fi
+
     ok "Starting JavaScript analysis..."
     ensure_dir "$outdir/js/files"
     ensure_dir "$outdir/js/analysis"
 
     local js_count
-    js_count=$(wc -l < "$outdir/js.txt")
+    js_count=$(wc -l < "$js_filtered")
 
-    local js_input="$outdir/js.txt"
+    local js_input="$js_filtered"
     if [[ $MAX_JS_FILES -gt 0 && $js_count -gt $MAX_JS_FILES ]]; then
         warn "Too many JS files ($js_count), limiting to $MAX_JS_FILES"
-        head -n "$MAX_JS_FILES" "$outdir/js.txt" > "$outdir/js_limited.txt"
+        head -n "$MAX_JS_FILES" "$js_filtered" > "$outdir/js_limited.txt"
         js_input="$outdir/js_limited.txt"
         js_count=$MAX_JS_FILES
     fi
@@ -286,6 +298,6 @@ js_step() {
 
     ok "JavaScript analysis completed - $(wc -l < "$outdir/js/analysis/all_endpoints.txt" 2>/dev/null || echo 0) total endpoints"
 
-    rm -rf "$outdir/js/files" "$outdir/js_limited.txt"
+    rm -rf "$outdir/js/files" "$outdir/js_limited.txt" "$outdir/js_live.txt"
     ok "Cleaned up raw JS files to save storage"
 }
